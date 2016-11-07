@@ -212,9 +212,10 @@ void do_extract(unzFile uf, const char *basePath, const char* password, vector<s
 void unzip(const char *zipfilename, const char *password, vector<string> &extractedFiles)
 {
   extractedFiles.clear();
-  zlib_filefunc64_def ffunc;
-  fill_win32_filefunc64A(&ffunc);
-  unzFile uf = unzOpen2_64(zipfilename,&ffunc);
+//  zlib_filefunc64_def ffunc;
+//  fill_win32_filefunc64A(&ffunc);
+//  unzFile uf = unzOpen2_64(zipfilename, &ffunc);
+  unzFile uf = unzOpen64(zipfilename);
 
   if (uf==NULL)
     throw std::exception("Cannot open zip file");
@@ -343,10 +344,11 @@ int zip(const char *zipfilename, const char *password, const vector<string> &fil
 
   zipFile zf;
   int errclose;
-  zlib_filefunc64_def ffunc;
-  fill_win32_filefunc64A(&ffunc);
+//  zlib_filefunc64_def ffunc;
+//  fill_win32_filefunc64A(&ffunc);
   strcpy(filename_try, zipfilename);
-  zf = zipOpen2_64(filename_try, 0,NULL, &ffunc);
+//  zf = zipOpen2_64(filename_try, 0, NULL, &ffunc);
+  zf = zipOpen64(filename_try, 0);
 
   if (zf == NULL) {
     sprintf_s(eb, "Error opening %s.",filename_try);
