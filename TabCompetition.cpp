@@ -1838,13 +1838,15 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
         ext.push_back(make_pair("IOF Startlista, version 2.0.3 (xml)", "*.xml"));
         ext.push_back(make_pair("OE Semikolonseparerad (csv)", "*.csv"));
         ext.push_back(make_pair("Webbdokument (html)", "*.html;*.htm"));
-      }
+		ext.push_back(make_pair("French Orienteering Federation OE Semikolonseparerad (csv)", "*.csv"));
+	  }
       else {
         ext.push_back(make_pair("IOF Resultat, version 3.0 (xml)", "*.xml"));
         ext.push_back(make_pair("IOF Resultat, version 2.0.3 (xml)", "*.xml"));
         ext.push_back(make_pair("OE Semikolonseparerad (csv)", "*.csv"));
         ext.push_back(make_pair("Webbdokument (html)", "*.html"));
-      }
+		ext.push_back(make_pair("French Orienteering Federation OE Semikolonseparerad (csv)", "*.csv"));
+	  }
       string save = gdi.browseForSave(ext, "xml", FilterIndex);
 
       if (save.length() > 0) {
@@ -1874,7 +1876,10 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       else if (FilterIndex == 3) {
         oe->exportOECSV(save.c_str());
       }
-      else {
+	  else if (FilterIndex == 5) {
+		oe->exportFFCOOECSV(save.c_str());
+	  }
+	  else {
         oListParam par;
         par.listCode = EStdStartList;
         par.setLegNumberCoded(-1);
@@ -1947,7 +1952,10 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       else if (FilterIndex == 3) {
         oe->exportOECSV(save.c_str());
       }
-      else {
+	  else if (FilterIndex == 5) {
+		  oe->exportFFCOOECSV(save.c_str());
+	  }
+	  else {
         oListParam par;
         par.listCode = EStdResultList;
         par.showSplitTimes = true;
@@ -3659,6 +3667,7 @@ void TabCompetition::selectExportSplitOptions(gdioutput &gdi) {
   types.push_back(make_pair(lang.tl("IOF Resultat, version 2.0.3 (xml)"), 2));
   types.push_back(make_pair(lang.tl("OE Semikolonseparerad (csv)"), 3));
   types.push_back(make_pair(lang.tl("Webbdokument (html)"), 4));
+  types.push_back(make_pair(lang.tl("French Orienteering Federation OE Semikolonseparerad (csv)"), 5));
 
   gdi.addItem("Type", types);
   gdi.selectFirstItem("Type");

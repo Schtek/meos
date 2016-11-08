@@ -832,6 +832,7 @@ public:
                           bool teamsAsIndividual);
 
   bool exportOECSV(const char *file);
+  bool exportFFCOOECSV(const char *file);
   bool save();
   void duplicate();
   void newCompetition(const string &Name);
