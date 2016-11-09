@@ -174,6 +174,8 @@ public:
   bool hasName() const {return !Name.empty();}
   string getName() const;
 
+  string getIdS() const;
+
   bool isRogaining(bool useRogaining) const {return useRogaining && (Status == StatusRogaining);}
 
   void setStatus(ControlStatus st);

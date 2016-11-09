@@ -326,13 +326,24 @@ bool oControl::setNumbers(const string &numbers)
 
 string oControl::getName() const
 {
-  if (!Name.empty())
-    return Name;
-  else {
-    char bf[16];
-    sprintf_s(bf, "[%d]", Id);
-    return bf;
-  }
+	if (!Name.empty())
+		return Name;
+	else {
+		char bf[16];
+		sprintf_s(bf, "[%d]", Id);
+		return bf;
+	}
+}
+
+string oControl::getIdS() const
+{
+	if (!Name.empty())
+		return Name;
+	else {
+		char bf[16];
+		sprintf_s(bf, "%d", Id);
+		return bf;
+	}
 }
 
 oDataContainer &oControl::getDataBuffers(pvoid &data, pvoid &olddata, pvectorstr &strData) const {
