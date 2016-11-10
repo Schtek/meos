@@ -1838,16 +1838,12 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
         ext.push_back(make_pair("IOF Startlista, version 2.0.3 (xml)", "*.xml"));
         ext.push_back(make_pair("OE Semikolonseparerad (csv)", "*.csv"));
         ext.push_back(make_pair("Webbdokument (html)", "*.html;*.htm"));
-		ext.push_back(make_pair("French Orienteering Federation OE Semikolonseparerad (csv)", "*.csv"));
-		ext.push_back(make_pair("Split Times OE Semikolonseparerad (csv)", "*.csv"));
 	  }
       else {
         ext.push_back(make_pair("IOF Resultat, version 3.0 (xml)", "*.xml"));
         ext.push_back(make_pair("IOF Resultat, version 2.0.3 (xml)", "*.xml"));
         ext.push_back(make_pair("OE Semikolonseparerad (csv)", "*.csv"));
         ext.push_back(make_pair("Webbdokument (html)", "*.html"));
-		ext.push_back(make_pair("French Orienteering Federation OE Semikolonseparerad (csv)", "*.csv"));
-		ext.push_back(make_pair("Split Times OE Semikolonseparerad (csv)", "*.csv"));
 	  }
       string save = gdi.browseForSave(ext, "xml", FilterIndex);
 
@@ -1876,14 +1872,8 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
                                 save.c_str(), useUTC, allTransfer, individual);
       }
       else if (FilterIndex == 3) {
-        oe->exportOECSV(save.c_str());
+        oe->exportOECSV(save.c_str(), 1, false);
       }
-	  else if (FilterIndex == 5) {
-		oe->exportFFCOOECSV(save.c_str());
-	  }
-	  else if (FilterIndex == 6) {
-		  oe->exportSplitTimesOECSV(save.c_str());
-	  }
 	  else {
         oListParam par;
         par.listCode = EStdStartList;
@@ -1912,6 +1902,9 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       gdi.getSelection("ClassNewEntries", allTransfer);
       
       int FilterIndex = gdi.getSelectedItem("Type").first;
+	  int cSVLanguageHeaderIndex = gdi.getSelectedItem("LanguageType").first;
+	  bool includeSplits = gdi.isChecked("ExportSplitTimes");
+
       bool unroll = gdi.isChecked("UnrollLoops"); // If not applicable, field does not exist.
 
       gdi.setWaitCursor(true);
@@ -1955,14 +1948,8 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
         }
       }
       else if (FilterIndex == 3) {
-        oe->exportOECSV(save.c_str());
+        oe->exportOECSV(save.c_str(), cSVLanguageHeaderIndex, includeSplits);
       }
-	  else if (FilterIndex == 5) {
-		  oe->exportFFCOOECSV(save.c_str());
-	  }
-	  else if (FilterIndex == 6) {
-		  oe->exportSplitTimesOECSV(save.c_str());
-	  }
 	  else {
         oListParam par;
         par.listCode = EStdResultList;
@@ -2300,6 +2287,15 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
         gdi.setInputStatus("ExportTeam", lbi.data == 1); // Enable on IOF-XML
       }
     }
+	else if (lbi.id == "ExportType") {
+		if (lbi.data == 3)
+		{
+			// Show options for OE CSV
+		}
+		else {
+			// Hide options for OE CSV
+		}
+	}
   }
   else if (type== GUI_INPUT) {
     InputInfo ii=*(InputInfo *)data;
@@ -3668,18 +3664,46 @@ void TabCompetition::selectExportSplitOptions(gdioutput &gdi) {
   gdi.newColumn();
   gdi.popY();
   gdi.pushX();
-  gdi.addSelection("Type", 250, 200, CompetitionCB, "Exporttyp");
+  gdi.addSelection("ExportType", 250, 200, CompetitionCB, "Exporttyp");
 
   vector< pair<string, size_t> > types;
   types.push_back(make_pair(lang.tl("IOF Resultat, version 3.0 (xml)"), 1));
   types.push_back(make_pair(lang.tl("IOF Resultat, version 2.0.3 (xml)"), 2));
   types.push_back(make_pair(lang.tl("OE Semikolonseparerad (csv)"), 3));
   types.push_back(make_pair(lang.tl("Webbdokument (html)"), 4));
-  types.push_back(make_pair(lang.tl("French Orienteering Federation OE Semikolonseparerad (csv)"), 5));
-  types.push_back(make_pair(lang.tl("Split Times OE Semikolonseparerad (csv)"), 6));
 
-  gdi.addItem("Type", types);
-  gdi.selectFirstItem("Type");
+  gdi.addItem("ExportType", types);
+  gdi.selectFirstItem("ExportType");
+
+  gdi.addSelection("LanguageType", 250, 200, CompetitionCB, "Export language:");
+  vector<pair<string, size_t>> typeLanguages;
+  typeLanguages.push_back(make_pair(lang.tl("English"), 1));
+  typeLanguages.push_back(make_pair(lang.tl("Svenska"), 2));
+  typeLanguages.push_back(make_pair(lang.tl("Deutsch"), 3));
+  typeLanguages.push_back(make_pair(lang.tl("Dansk"), 4));
+  typeLanguages.push_back(make_pair(lang.tl("Français"), 5));
+  typeLanguages.push_back(make_pair(lang.tl("Russian"), 6));
+
+  gdi.addItem("LanguageType", typeLanguages);
+  string currentLanguage = oe->getPropertyString("Language", "English");
+  int defaultLanguageType = 1;
+
+  if (currentLanguage == "English")
+	  defaultLanguageType = 1;
+  else if (currentLanguage == "Svenska")
+	  defaultLanguageType = 2;
+  else if (currentLanguage == "Deutsch")
+	  defaultLanguageType = 3;
+  else if (currentLanguage == "Dansk")
+	  defaultLanguageType = 4;
+  else if (currentLanguage == "Français")
+	  defaultLanguageType = 5;
+  else if (currentLanguage == "Russian(ISO 8859 - 5)")
+	  defaultLanguageType = 6;
+
+  gdi.selectItemByData("LanguageType", defaultLanguageType);
+
+  gdi.addCheckbox("ExportSplitTimes", "Export Split Times", 0, false);
 
   ClassConfigInfo cnf;
   oe->getClassConfigurationInfo(cnf);

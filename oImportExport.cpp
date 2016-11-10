@@ -105,79 +105,8 @@ string &getFirst(string &inout, int maxNames) {
       OElength=40};
 */
 
-bool oEvent::exportOECSV(const char *file)
-{
-  csvparser csv;
-  oClass::initClassId(*this);
 
-  if (!csv.openOutput(file))
-    return false;
-
-  calculateResults(RTClassResult);
-
-  oRunnerList::iterator it;
-
-  csv.OutputRow("Startnr;Bricka;Databas nr.;Efternamn;Förnamn;År;K;Block;ut;Start;Mål;Tid;Status;Klubb nr.;Namn;Ort;Land;Klass nr.;Kort;Lång;Num1;Num2;Num3;Text1;Text2;Text3;Adr. namn;Gata;Rad 2;Post nr.;Ort;Tel;Fax;E-post;Id/Club;Hyrd;Startavgift;Betalt;Bana nr.;Bana;km;Hm;Bana kontroller;Pl");
-
-  char bf[256];
-  for(it=Runners.begin(); it != Runners.end(); ++it){
-    vector<string> row;
-    row.resize(44);
-    oDataInterface di=it->getDI();
-
-    row[0]=conv_is(it->getId());
-    row[1]=conv_is(it->getCardNo());
-    row[2]=conv_is(int(it->getExtIdentifier()));
-    row[3]=it->getFamilyName();
-    row[4]=it->getGivenName();
-    row[5]=conv_is(di.getInt("BirthYear") % 100);
-    row[6]=di.getString("Sex");
-
-    row[9]=it->getStartTimeS();
-    if (row[9]=="-") row[9]="";
-
-    row[10]=it->getFinishTimeS();
-    if (row[10]=="-") row[10]="";
-
-    row[11]=it->getRunningTimeS();
-    if (row[11]=="-") row[11]="";
-
-    row[12]=conv_is(ConvertStatusToOE(it->getStatus()));
-    row[13]=conv_is(it->getClubId());
-
-    row[15]=it->getClub();
-    row[16]=di.getString("Nationality");
-    row[17]=conv_is(it->getClassId());
-    row[18]=it->getClass();
-    row[19]=it->getClass();
-
-    row[35]=conv_is(di.getInt("CardFee"));
-    row[36]=conv_is(di.getInt("Fee"));
-    row[37]=conv_is(di.getInt("Paid"));
-
-    pCourse pc=it->getCourse(true);
-    if (pc){
-      row[38]=conv_is(pc->getId());
-      row[39]=pc->getName();
-      if (pc->getLength()>0){
-        sprintf_s(bf, "%d.%d", pc->getLength()/1000, pc->getLength()%1000);
-        row[40]=bf;
-      }
-      row[41]=conv_is(pc->getDI().getInt("Climb"));
-
-      row[42]=conv_is(pc->nControls);
-    }
-    row[43] = it->getPlaceS();
-
-    csv.OutputRow(row);
-  }
-
-  csv.closeOutput();
-
-  return true;
-}
-
-bool oEvent::exportFFCOOECSV(const char *file)
+bool oEvent::exportOECSV(const char *file, int languageTypeIndex, bool includeSplits)
 {
 	csvparser csv;
 	oClass::initClassId(*this);
@@ -189,88 +118,29 @@ bool oEvent::exportFFCOOECSV(const char *file)
 
 	oRunnerList::iterator it;
 
-	csv.OutputRow("N° dép.;Puce;Ident. base de données;Nom;Prénom;Né;S;Plage;nc;Départ;Arrivée;Temps;Evaluation;N° club;Nom;Ville;Nat;N° cat.;Court;Long;Num1;Num2;Num3;Text1;Text2;Text3;Adr. nom;Rue;Ligne2;Code Post.;Ville;Tél.;Fax;E-mail;Id/Club;Louée;Engagement;Payé;Circuit N°;Circuit;km;m;Postes du circuit;Pl");
-
-	char bf[256];
-	for (it = Runners.begin(); it != Runners.end(); ++it) {
-		vector<string> row;
-		row.resize(44);
-		oDataInterface di = it->getDI();
-
-		row[0] = conv_is(it->getId());
-		row[1] = conv_is(it->getCardNo());
-		row[2] = conv_is(int(it->getExtIdentifier()));
-		row[3] = it->getFamilyName();
-		row[4] = it->getGivenName();
-		row[5] = conv_is(di.getInt("BirthYear") % 100);
-		row[6] = di.getString("Sex");
-
-		// nc / Runner shall not / doesn't want to be ranked
-		if (it->getStatus() == StatusNotCompetiting)
-			row[8] = "X";
-		else
-			row[8] = "0";
-
-		// Excel format HH:MM:SS
-		row[9] = it->getStartTimeS();
-		if (row[9] == "-") row[9] = "";
-
-		// Excel format HH:MM:SS
-		row[10] = it->getFinishTimeS();
-		if (row[10] == "-") row[10] = "";
-
-		// Excel format HH:MM:SS
-		row[11] = formatTimeHMS(it->getRunningTime());
-		if (row[11] == "-") row[11] = "";
-
-		row[12] = conv_is(ConvertStatusToOE(it->getStatus()));
-		row[13] = conv_is(it->getClubId());
-
-		row[15] = it->getClub();
-		row[16] = di.getString("Nationality");
-		row[17] = conv_is(it->getClassId());
-		row[18] = it->getClass();
-		row[19] = it->getClass();
-
-		row[35] = conv_is(di.getInt("CardFee"));
-		row[36] = conv_is(di.getInt("Fee"));
-		row[37] = conv_is(di.getInt("Paid"));
-
-		pCourse pc = it->getCourse(true);
-		if (pc) {
-			row[38] = conv_is(pc->getId());
-			row[39] = pc->getName();
-			if (pc->getLength()>0) {
-				sprintf_s(bf, "%d.%d", pc->getLength() / 1000, pc->getLength() % 1000);
-				row[40] = bf;
-			}
-			row[41] = conv_is(pc->getDI().getInt("Climb"));
-
-			row[42] = conv_is(pc->nControls);
-		}
-		row[43] = it->getPlaceS();
-
-		csv.OutputRow(row);
+	switch (languageTypeIndex)
+	{
+	case 1: // English
+		csv.OutputRow("N° dép.;Puce;Ident. base de données;Nom;Prénom;Né;S;Plage;nc;Départ;Arrivée;Temps;Evaluation;N° club;Nom;Ville;Nat;N° cat.;Court;Long;Num1;Num2;Num3;Text1;Text2;Text3;Adr. nom;Rue;Ligne2;Code Post.;Ville;Tél.;Fax;E-mail;Id/Club;Louée;Engagement;Payé;Circuit N°;Circuit;km;m;Postes du circuit;Pl;Poinçon de départ;Arrivée (P);Poste1;Poinçon1;Poste2;Poinçon2;Poste3;Poinçon3;Poste4;Poinçon4;Poste5;Poinçon5;Poste6;Poinçon6;Poste7;Poinçon7;Poste8;Poinçon8;Poste9;Poinçon9;Poste10;Poinçon10;(peut être plus) ...");
+		break;
+	case 2: // Svenska
+		csv.OutputRow("N° dép.;Puce;Ident. base de données;Nom;Prénom;Né;S;Plage;nc;Départ;Arrivée;Temps;Evaluation;N° club;Nom;Ville;Nat;N° cat.;Court;Long;Num1;Num2;Num3;Text1;Text2;Text3;Adr. nom;Rue;Ligne2;Code Post.;Ville;Tél.;Fax;E-mail;Id/Club;Louée;Engagement;Payé;Circuit N°;Circuit;km;m;Postes du circuit;Pl;Poinçon de départ;Arrivée (P);Poste1;Poinçon1;Poste2;Poinçon2;Poste3;Poinçon3;Poste4;Poinçon4;Poste5;Poinçon5;Poste6;Poinçon6;Poste7;Poinçon7;Poste8;Poinçon8;Poste9;Poinçon9;Poste10;Poinçon10;(peut être plus) ...");
+		break;
+	case 3: // Deutsch
+		csv.OutputRow("N° dép.;Puce;Ident. base de données;Nom;Prénom;Né;S;Plage;nc;Départ;Arrivée;Temps;Evaluation;N° club;Nom;Ville;Nat;N° cat.;Court;Long;Num1;Num2;Num3;Text1;Text2;Text3;Adr. nom;Rue;Ligne2;Code Post.;Ville;Tél.;Fax;E-mail;Id/Club;Louée;Engagement;Payé;Circuit N°;Circuit;km;m;Postes du circuit;Pl;Poinçon de départ;Arrivée (P);Poste1;Poinçon1;Poste2;Poinçon2;Poste3;Poinçon3;Poste4;Poinçon4;Poste5;Poinçon5;Poste6;Poinçon6;Poste7;Poinçon7;Poste8;Poinçon8;Poste9;Poinçon9;Poste10;Poinçon10;(peut être plus) ...");
+		break;
+	case 4: // Dansk
+		csv.OutputRow("N° dép.;Puce;Ident. base de données;Nom;Prénom;Né;S;Plage;nc;Départ;Arrivée;Temps;Evaluation;N° club;Nom;Ville;Nat;N° cat.;Court;Long;Num1;Num2;Num3;Text1;Text2;Text3;Adr. nom;Rue;Ligne2;Code Post.;Ville;Tél.;Fax;E-mail;Id/Club;Louée;Engagement;Payé;Circuit N°;Circuit;km;m;Postes du circuit;Pl;Poinçon de départ;Arrivée (P);Poste1;Poinçon1;Poste2;Poinçon2;Poste3;Poinçon3;Poste4;Poinçon4;Poste5;Poinçon5;Poste6;Poinçon6;Poste7;Poinçon7;Poste8;Poinçon8;Poste9;Poinçon9;Poste10;Poinçon10;(peut être plus) ...");
+		break;
+	case 5: // Français
+		csv.OutputRow("N° dép.;Puce;Ident. base de données;Nom;Prénom;Né;S;Plage;nc;Départ;Arrivée;Temps;Evaluation;N° club;Nom;Ville;Nat;N° cat.;Court;Long;Num1;Num2;Num3;Text1;Text2;Text3;Adr. nom;Rue;Ligne2;Code Post.;Ville;Tél.;Fax;E-mail;Id/Club;Louée;Engagement;Payé;Circuit N°;Circuit;km;m;Postes du circuit;Pl;Poinçon de départ;Arrivée (P);Poste1;Poinçon1;Poste2;Poinçon2;Poste3;Poinçon3;Poste4;Poinçon4;Poste5;Poinçon5;Poste6;Poinçon6;Poste7;Poinçon7;Poste8;Poinçon8;Poste9;Poinçon9;Poste10;Poinçon10;(peut être plus) ...");
+		break;
+	case 6: // Russian
+		csv.OutputRow("N° dép.;Puce;Ident. base de données;Nom;Prénom;Né;S;Plage;nc;Départ;Arrivée;Temps;Evaluation;N° club;Nom;Ville;Nat;N° cat.;Court;Long;Num1;Num2;Num3;Text1;Text2;Text3;Adr. nom;Rue;Ligne2;Code Post.;Ville;Tél.;Fax;E-mail;Id/Club;Louée;Engagement;Payé;Circuit N°;Circuit;km;m;Postes du circuit;Pl;Poinçon de départ;Arrivée (P);Poste1;Poinçon1;Poste2;Poinçon2;Poste3;Poinçon3;Poste4;Poinçon4;Poste5;Poinçon5;Poste6;Poinçon6;Poste7;Poinçon7;Poste8;Poinçon8;Poste9;Poinçon9;Poste10;Poinçon10;(peut être plus) ...");
+		break;
+	default:
+		csv.OutputRow("N° dép.;Puce;Ident. base de données;Nom;Prénom;Né;S;Plage;nc;Départ;Arrivée;Temps;Evaluation;N° club;Nom;Ville;Nat;N° cat.;Court;Long;Num1;Num2;Num3;Text1;Text2;Text3;Adr. nom;Rue;Ligne2;Code Post.;Ville;Tél.;Fax;E-mail;Id/Club;Louée;Engagement;Payé;Circuit N°;Circuit;km;m;Postes du circuit;Pl;Poinçon de départ;Arrivée (P);Poste1;Poinçon1;Poste2;Poinçon2;Poste3;Poinçon3;Poste4;Poinçon4;Poste5;Poinçon5;Poste6;Poinçon6;Poste7;Poinçon7;Poste8;Poinçon8;Poste9;Poinçon9;Poste10;Poinçon10;(peut être plus) ...");
 	}
-
-	csv.closeOutput();
-
-	return true;
-}
-
-bool oEvent::exportSplitTimesOECSV(const char *file)
-{
-	csvparser csv;
-	oClass::initClassId(*this);
-
-	if (!csv.openOutput(file))
-		return false;
-
-	calculateResults(RTClassResult);
-
-	oRunnerList::iterator it;
-
-	csv.OutputRow("N° dép.;Puce;Ident. base de données;Nom;Prénom;Né;S;Plage;nc;Départ;Arrivée;Temps;Evaluation;N° club;Nom;Ville;Nat;N° cat.;Court;Long;Num1;Num2;Num3;Text1;Text2;Text3;Adr. nom;Rue;Ligne2;Code Post.;Ville;Tél.;Fax;E-mail;Id/Club;Louée;Engagement;Payé;Circuit N°;Circuit;km;m;Postes du circuit;Pl;Poinçon de départ;Arrivée (P);Poste1;Poinçon1;Poste2;Poinçon2;Poste3;Poinçon3;Poste4;Poinçon4;Poste5;Poinçon5;Poste6;Poinçon6;Poste7;Poinçon7;Poste8;Poinçon8;Poste9;Poinçon9;Poste10;Poinçon10;(peut être plus) ...");
 
 	char bf[256];
 	for (it = Runners.begin(); it != Runners.end(); ++it) {
@@ -331,30 +201,33 @@ bool oEvent::exportSplitTimesOECSV(const char *file)
 		}
 		row[43] = it->getPlaceS();
 
-		// Add here split times
+		if (includeSplits)
+		{
+			// Add here split times
 
-		// row[45]: finish time
+			// row[45]: finish time
 
-		// row[46; 48; 50; ..]: control id
-		// row[47; 49; 51; ..]: punch time of control id row[i-1]
+			// row[46; 48; 50; ..]: control id
+			// row[47; 49; 51; ..]: punch time of control id row[i-1]
 
-		const vector<SplitData> &sp = it->getSplitTimes(true);
+			const vector<SplitData> &sp = it->getSplitTimes(true);
 
-		int no = 1;
-		bool hasRogaining = pc->hasRogaining();
-		int startIx = pc->useFirstAsStart() ? 1 : 0;
-		int endIx = pc->useLastAsFinish() ? pc->nControls - 1 : pc->nControls;
+			int no = 1;
+			bool hasRogaining = pc->hasRogaining();
+			int startIx = pc->useFirstAsStart() ? 1 : 0;
+			int endIx = pc->useLastAsFinish() ? pc->nControls - 1 : pc->nControls;
 
-		// And what about extra controls? In OE CSV, they are stored after the others.
+			// And what about extra controls? In OE CSV, they are stored after the others.
 
-		for (int k = startIx, m = 0; k<endIx; k++, m+=2) {
-			if (pc->Controls[k]->isRogaining(hasRogaining))
-				continue;
-			row.push_back(pc->Controls[k]->getIdS());
-			if (unsigned(k) < sp.size() && sp[k].time > 0)
-				row.push_back(formatTimeHMS(sp[k].time - it->tStartTime));
-			else
-				row.push_back("");
+			for (int k = startIx, m = 0; k < endIx; k++, m += 2) {
+				if (pc->Controls[k]->isRogaining(hasRogaining))
+					continue;
+				row.push_back(pc->Controls[k]->getIdS());
+				if (unsigned(k) < sp.size() && sp[k].time > 0)
+					row.push_back(formatTimeHMS(sp[k].time - it->tStartTime));
+				else
+					row.push_back("");
+			}
 		}
 
 		csv.OutputRow(row);
