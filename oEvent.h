@@ -604,6 +604,7 @@ public:
   bool importXMLNames(const char *file,
                       oFreeImport &fi, string &info) const;
 
+
   void calculateSplitResults(int controlIdFrom, int controlIdTo);
   // Get total number of completed runner for given class and leg.
   void getNumClassRunners(int id, int leg, int &total, int &finished, int &dns) const;
@@ -1131,6 +1132,7 @@ protected:
   pClub getClubCreate(int clubId);
 
   bool addXMLCompetitorDB(const xmlobject &xentry, int ClubId);
+  bool addOECSVCompetitorDB(const vector<string> row);
   pRunner addXMLPerson(const xmlobject &person);
   pRunner addXMLStart(const xmlobject &xstart, pClass cls);
   pRunner addXMLEntry(const xmlobject &xentry, int ClubId, bool setClass);
@@ -1204,6 +1206,7 @@ public:
   void analyseDNS(vector<pRunner> &unknown_dns, vector<pRunner> &known_dns,
                   vector<pRunner> &known, vector<pRunner> &unknown);
 
+  void importOECSV_Data(const char * oecsvfile, bool clear);
   void importXML_IOF_Data(const char *clubfile,
                           const char *competitorfile, bool clear);
 

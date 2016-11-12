@@ -540,83 +540,139 @@ void oEvent::importXML_EntryData(gdioutput &gdi, const char *file, bool updateCl
 
 bool oEvent::addXMLCompetitorDB(const xmlobject &xentry, int clubId)
 {
-  if (!xentry) return false;
+	if (!xentry) return false;
 
-  xmlobject person=xentry.getObject("Person");
-  if (!person) return false;
+	xmlobject person = xentry.getObject("Person");
+	if (!person) return false;
 
-  int pid = person.getObjectInt("PersonId");
+	int pid = person.getObjectInt("PersonId");
 
-  xmlobject pname=person.getObject("PersonName");
-  if (!pname) return false;
+	xmlobject pname = person.getObject("PersonName");
+	if (!pname) return false;
 
-  int cardno=0;
-  string tmp;
+	int cardno = 0;
+	string tmp;
 
-  xmlList cards;
-  xentry.getObjects("CCard", cards);
+	xmlList cards;
+	xentry.getObjects("CCard", cards);
 
-  for (size_t k= 0; k<cards.size(); k++) {
-    xmlobject &card = cards[k];
-    if (card) {
-      xmlobject psys = card.getObject("PunchingUnitType");
-      if (!psys || psys.getObjectString("value", tmp) == "SI") {
-        cardno = card.getObjectInt("CCardId");
-        break;
-      }
-    }
-  }
+	for (size_t k = 0; k<cards.size(); k++) {
+		xmlobject &card = cards[k];
+		if (card) {
+			xmlobject psys = card.getObject("PunchingUnitType");
+			if (!psys || psys.getObjectString("value", tmp) == "SI") {
+				cardno = card.getObjectInt("CCardId");
+				break;
+			}
+		}
+	}
 
-  //if (!cardno)
-  //  return false;
+	//if (!cardno)
+	//  return false;
 
-  string given;
-  pname.getObjectString("Given", given);
-  getFirst(given, 2);
-  string family;
-  pname.getObjectString("Family", family);
+	string given;
+	pname.getObjectString("Given", given);
+	getFirst(given, 2);
+	string family;
+	pname.getObjectString("Family", family);
 
-  if (given.empty() || family.empty())
-    return false;
+	if (given.empty() || family.empty())
+		return false;
 
-  string name(given+" "+family);
+	string name(given + " " + family);
 
-  char sex[2];
-  person.getObjectString("sex", sex, 2);
+	char sex[2];
+	person.getObjectString("sex", sex, 2);
 
-  xmlobject bd=person.getObject("BirthDate");
-  int birth = bd ? bd.getObjectInt("Date") : 0;
+	xmlobject bd = person.getObject("BirthDate");
+	int birth = bd ? bd.getObjectInt("Date") : 0;
 
-  xmlobject nat=person.getObject("Nationality");
+	xmlobject nat = person.getObject("Nationality");
 
-  char national[4]={0,0,0,0};
-  if (nat) {
-    xmlobject natId = nat.getObject("CountryId");
-    if (natId)
-      natId.getObjectString("value", national, 4);
-  }
+	char national[4] = { 0,0,0,0 };
+	if (nat) {
+		xmlobject natId = nat.getObject("CountryId");
+		if (natId)
+			natId.getObjectString("value", national, 4);
+	}
 
-  RunnerDBEntry *rde = runnerDB->getRunnerById(pid);
+	RunnerDBEntry *rde = runnerDB->getRunnerById(pid);
 
-  if (!rde) {
-    rde = runnerDB->getRunnerByCard(cardno);
+	if (!rde) {
+		rde = runnerDB->getRunnerByCard(cardno);
 
-    if (rde && rde->getExtId()!=0)
-      rde = 0; //Other runner, same card
+		if (rde && rde->getExtId() != 0)
+			rde = 0; //Other runner, same card
 
-    if (!rde)
-      rde = runnerDB->addRunner(name.c_str(), pid, clubId, cardno);
-  }
+		if (!rde)
+			rde = runnerDB->addRunner(name.c_str(), pid, clubId, cardno);
+	}
 
-  if (rde) {
-    rde->setExtId(pid);
-    rde->setName(name.c_str());
-    rde->clubNo = clubId;
-    rde->birthYear = extendYear(birth);
-    rde->sex = sex[0];
-    memcpy(rde->national, national, 3);
-  }
-  return true;
+	if (rde) {
+		rde->setExtId(pid);
+		rde->setName(name.c_str());
+		rde->clubNo = clubId;
+		rde->birthYear = extendYear(birth);
+		rde->sex = sex[0];
+		memcpy(rde->national, national, 3);
+	}
+	return true;
+}
+
+bool oEvent::addOECSVCompetitorDB(const vector<string> row)
+{
+	// Ident. base de données;Puce;Nom;Prénom;Né;S;N° club;Nom;Ville;Nat;N° cat.;Court;Long;Num1;Num2;Num3;E_Mail;Texte1;Texte2;Texte3;Adr. nom;Rue;Ligne2;Code Post.;Ville;Tél.;Fax;E-mail;Id/Club;Louée
+	enum { OEid = 0, OEcard = 1, OEsurname = 2, OEfirstname = 3, OEbirth = 4, OEsex = 5,
+		OEclubno = 6, OEclub = 7, OEclubcity = 8, OEnat = 9, OEclassno = 10, OEclassshort = 11, OEclasslong = 12
+	};
+
+	int pid = atoi(row[OEid].c_str());
+
+	string given = row[OEfirstname];
+	string family = row[OEsurname];
+
+	if (given.empty() || family.empty())
+		return false;
+
+	string name(given + " " + family);
+
+	// TODO: review use of char[] and make it robust against sex size
+	char sex[2];
+	strcpy(sex, row[OEsex].c_str());
+	int birth = atoi(row[OEbirth].c_str());
+
+	char national[4] = { 0,0,0,0 };
+	if (row[OEnat] == "France")
+	{
+		strcpy(national, "FRA");
+	}
+
+	// Extract club data
+
+	//oDBClubEntry cde = runnerDB->getClub(row[OEclub].c_str());
+
+	RunnerDBEntry *rde = runnerDB->getRunnerById(pid);
+
+	int cardno = atoi(row[OEcard].c_str());
+	if (!rde) {
+		rde = runnerDB->getRunnerByCard(cardno);
+
+		if (rde && rde->getExtId() != 0)
+			rde = 0; //Other runner, same card
+
+		if (!rde)
+			rde = runnerDB->addRunner(name.c_str(), pid, clubId, cardno);
+	}
+
+	if (rde) {
+		rde->setExtId(pid);
+		rde->setName(name.c_str());
+		//rde->clubNo = clubId;
+		rde->birthYear = extendYear(birth);
+		rde->sex = sex[0];
+		memcpy(rde->national, national, 3);
+	}
+	return true;
 }
 
 bool oEvent::addXMLTeamEntry(const xmlobject &xentry, int clubId)
@@ -1058,6 +1114,63 @@ bool oEvent::importXMLNames(const char *file,
   info+=bf;
 
   return true;
+}
+
+void oEvent::importOECSV_Data(const char *oecsvfile, bool clear) {
+	// Clear DB if needed
+	if (clear) {
+		runnerDB->clearClubs();
+		runnerDB->clearRunners();
+	}
+
+	csvparser cp;
+	list<vector<string>> data;
+
+	gdibase.addString("", 0, "Reading OE database...");
+	gdibase.refresh();
+
+	cp.parse(oecsvfile, data);
+
+	gdibase.addString("", 0, "Importing licensees and clubs...");
+	gdibase.refresh();
+
+	list<vector<string>>::iterator it;
+
+	for (it = data.begin(); it != data.end(); ++it) {
+		addOECSVCompetitorDB(*it);
+	}
+
+	//gdibase.addStringUT(0, lang.tl("Antal importerade: ") + itos(clubCount));
+
+	//gdibase.addStringUT(0, lang.tl("Antal importerade: ") + itos(personCount));
+	gdibase.refresh();
+
+	setProperty("DatabaseUpdate", getRelativeDay());
+
+	// Save DB
+	saveRunnerDatabase("database", true);
+
+	if (HasDBConnection) {
+		gdibase.addString("", 0, "Uppdaterar serverns databas...");
+		gdibase.refresh();
+
+		OpFailStatus stat = (OpFailStatus)msUploadRunnerDB(this);
+
+		if (stat == opStatusFail) {
+			char bf[256];
+			msGetErrorState(bf);
+			string error = string("Kunde inte ladda upp löpardatabasen (X).#") + bf;
+			throw meosException(error);
+		}
+		else if (stat == opStatusWarning) {
+			char bf[256];
+			msGetErrorState(bf);
+			gdibase.addInfoBox("", string("Kunde inte ladda upp löpardatabasen (X).#") + bf, 5000);
+		}
+
+		gdibase.addString("", 0, "Klart");
+		gdibase.refresh();
+	}
 }
 
 void oEvent::importXML_IOF_Data(const char *clubfile,

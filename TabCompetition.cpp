@@ -822,11 +822,16 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       gdi.addInput("ClubFile", "", 40, 0, "Filnamn IOF (xml) med klubbar");
       gdi.dropLine();
       gdi.addButton("Browse", "Bläddra...", CompetitionCB).setExtra("ClubFile");
-      gdi.popX();
-      gdi.dropLine(3);
-      gdi.addInput("CmpFile", "", 40, 0, "Filnamn IOF (xml) med löpare");
-      gdi.dropLine();
-      gdi.addButton("Browse", "Bläddra...", CompetitionCB).setExtra("CmpFile");
+	  gdi.popX();
+	  gdi.dropLine(3);
+	  gdi.addInput("CmpFile", "", 40, 0, "Filnamn IOF (xml) med löpare");
+	  gdi.dropLine();
+	  gdi.addButton("Browse", "Bläddra...", CompetitionCB).setExtra("CmpFile");
+	  gdi.popX();
+	  gdi.dropLine(3);
+	  gdi.addInput("OECSVFile", "", 40, 0, "Filename OE (csv) with runners and clubs");
+	  gdi.dropLine();
+	  gdi.addButton("Browse", "Bläddra...", CompetitionCB).setExtra("OECSVFile");
 
       gdi.dropLine(2);
 
@@ -849,9 +854,13 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       gdi.setWaitCursor(true);
       gdi.addString("", 0, "Importerar...");
       bool clear = gdi.isChecked("Clear");
-      oe->importXML_IOF_Data(gdi.getText("ClubFile").c_str(),
-                             gdi.getText("CmpFile").c_str(), clear);
-
+	  if (strlen(gdi.getText("ClubFile").c_str()) != 0 || strlen(gdi.getText("CmpFile").c_str()) != 0) {
+		  oe->importXML_IOF_Data(gdi.getText("ClubFile").c_str(),
+			  gdi.getText("CmpFile").c_str(), clear);
+	  }
+	  else {
+		  oe->importOECSV_Data(gdi.getText("OECSVFile").c_str(), clear);
+	  }
       gdi.dropLine();
       gdi.addButton("CancelRunnerDatabase", "Återgå", CompetitionCB);
       gdi.refresh();
