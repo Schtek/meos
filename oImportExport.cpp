@@ -649,7 +649,29 @@ bool oEvent::addOECSVCompetitorDB(const vector<string> row)
 
 	// Extract club data
 
-	//oDBClubEntry cde = runnerDB->getClub(row[OEclub].c_str());
+	int clubId = atoi(row[OEclubno].c_str());
+	string clubName = row[OEclubcity];
+	string shortClubName = row[OEclub];
+
+//	if (!shortClubName.empty() && shortClubName.length() < clubName.length())
+//		swap(clubName, shortClubName);
+
+	if (clubName.length() > 0 && IsCharAlphaNumeric(clubName[0])) {
+
+		pClub pc = new oClub(this);
+		pc->Id = clubId;
+
+		pc->setName(clubName);
+		pc->setExtIdentifier(clubId);
+
+		oDataInterface DI = pc->getDI();
+		DI.setString("ShortName", shortClubName.substr(0, 8));
+
+		// Nationality?
+
+		runnerDB->importClub(*pc, false);
+		delete pc;
+	}
 
 	RunnerDBEntry *rde = runnerDB->getRunnerById(pid);
 
@@ -667,7 +689,7 @@ bool oEvent::addOECSVCompetitorDB(const vector<string> row)
 	if (rde) {
 		rde->setExtId(pid);
 		rde->setName(name.c_str());
-		//rde->clubNo = clubId;
+		rde->clubNo = clubId;
 		rde->birthYear = extendYear(birth);
 		rde->sex = sex[0];
 		memcpy(rde->national, national, 3);
@@ -1136,7 +1158,7 @@ void oEvent::importOECSV_Data(const char *oecsvfile, bool clear) {
 
 	list<vector<string>>::iterator it;
 
-	for (it = data.begin(); it != data.end(); ++it) {
+	for (it = ++(data.begin()); it != data.end(); ++it) {
 		addOECSVCompetitorDB(*it);
 	}
 

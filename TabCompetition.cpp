@@ -811,7 +811,18 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
         gdi.setText(ii.id, f);
       }
     }
-    else if (bi.id=="DBaseIn") {
+	else if (bi.id == "BrowseOE") {
+		vector< pair<string, string> > ext;
+		ext.push_back(make_pair("OE (csv)", "*.csv"));
+
+		string f = gdi.browseForOpen(ext, "csv");
+		string id;
+		if (!f.empty()) {
+			InputInfo &ii = dynamic_cast<InputInfo &>(gdi.getBaseInfo(bi.getExtra()));
+			gdi.setText(ii.id, f);
+		}
+	}
+	else if (bi.id=="DBaseIn") {
       gdi.clearPage(true);
       gdi.addString("", boldLarge, "Importera löpare och klubbar / distriktsregister");
       gdi.dropLine();
@@ -831,7 +842,7 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
 	  gdi.dropLine(3);
 	  gdi.addInput("OECSVFile", "", 40, 0, "Filename OE (csv) with runners and clubs");
 	  gdi.dropLine();
-	  gdi.addButton("Browse", "Bläddra...", CompetitionCB).setExtra("OECSVFile");
+	  gdi.addButton("BrowseOE", "Bläddra...", CompetitionCB).setExtra("OECSVFile");
 
       gdi.dropLine(2);
 
