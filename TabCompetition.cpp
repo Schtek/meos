@@ -2307,15 +2307,6 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
         gdi.setInputStatus("ExportTeam", lbi.data == 1); // Enable on IOF-XML
       }
     }
-	else if (lbi.id == "ExportType") {
-		if (lbi.data == 3)
-		{
-			// Show options for OE CSV
-		}
-		else {
-			// Hide options for OE CSV
-		}
-	}
   }
   else if (type== GUI_INPUT) {
     InputInfo ii=*(InputInfo *)data;
@@ -3684,7 +3675,7 @@ void TabCompetition::selectExportSplitOptions(gdioutput &gdi) {
   gdi.newColumn();
   gdi.popY();
   gdi.pushX();
-  gdi.addSelection("ExportType", 250, 200, CompetitionCB, "Exporttyp");
+  gdi.addSelection("Type", 250, 200, CompetitionCB, "Exporttyp");
 
   vector< pair<string, size_t> > types;
   types.push_back(make_pair(lang.tl("IOF Resultat, version 3.0 (xml)"), 1));
@@ -3692,8 +3683,8 @@ void TabCompetition::selectExportSplitOptions(gdioutput &gdi) {
   types.push_back(make_pair(lang.tl("OE Semikolonseparerad (csv)"), 3));
   types.push_back(make_pair(lang.tl("Webbdokument (html)"), 4));
 
-  gdi.addItem("ExportType", types);
-  gdi.selectFirstItem("ExportType");
+  gdi.addItem("Type", types);
+  gdi.selectFirstItem("Type");
 
   gdi.addSelection("LanguageType", 250, 200, CompetitionCB, "Export language:");
   vector<pair<string, size_t>> typeLanguages;
