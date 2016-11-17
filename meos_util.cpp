@@ -1546,6 +1546,26 @@ bool compareBib(const string &b1, const string &b2) {
   return z1 < z2;
 }
 
+
+/// Split a name into first name and last name
+int getNameCommaSplitPoint(const string &name) {
+	int commaSplit = -1;
+
+	for (unsigned k = 1; k + 1 < name.size(); k++) {
+		if (name[k] == ',') {
+			commaSplit = k;
+			break;
+		}
+	}
+
+	if (commaSplit >= 0) {
+		commaSplit += 2;
+	}
+	
+	return commaSplit;
+}
+
+
 /// Split a name into first name and last name
 int getNameSplitPoint(const string &name) {
   int split[10];
@@ -1558,7 +1578,6 @@ int getNameSplitPoint(const string &name) {
         break;
     }
   }
-
   if (nSplit == 1)
     return split[0] + 1;
   else if (nSplit == 0)
@@ -1577,7 +1596,12 @@ int getNameSplitPoint(const string &name) {
 }
 
 string getGivenName(const string &name) {
-  int sp = getNameSplitPoint(name);
+  int sp = getNameCommaSplitPoint(name);
+  if (sp != -1) {
+	  return trim(name.substr(0, sp - 2));
+  }
+
+  sp = getNameSplitPoint(name);
   if (sp == -1)
     return trim(name);
   else
@@ -1585,7 +1609,12 @@ string getGivenName(const string &name) {
 }
 
 string getFamilyName(const string &name) {
-  int sp = getNameSplitPoint(name);
+	int sp = getNameCommaSplitPoint(name);
+	if (sp != -1) {
+		return trim(name.substr(sp));
+	}
+
+	sp = getNameSplitPoint(name);
   if (sp == -1)
     return _EmptyString;
   else

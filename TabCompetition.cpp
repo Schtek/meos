@@ -847,8 +847,9 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       gdi.dropLine(2);
 
       gdi.popX();
-      gdi.addCheckbox("Clear", "Nollställ databaser", 0, true);
-      gdi.dropLine(3);
+	  gdi.addCheckbox("Clear", "Nollställ databaser", 0, true);
+	  gdi.addCheckbox("ReverseNames", "Import names as \"surname, first name\"", 0, true);
+	  gdi.dropLine(3);
 
       gdi.popX();
       gdi.addButton("DoDBaseIn", "Importera", CompetitionCB).setDefault();
@@ -865,12 +866,14 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       gdi.setWaitCursor(true);
       gdi.addString("", 0, "Importerar...");
       bool clear = gdi.isChecked("Clear");
+	  bool reverseNames = gdi.isChecked("ReverseNames");
+
 	  if (strlen(gdi.getText("ClubFile").c_str()) != 0 || strlen(gdi.getText("CmpFile").c_str()) != 0) {
 		  oe->importXML_IOF_Data(gdi.getText("ClubFile").c_str(),
 			  gdi.getText("CmpFile").c_str(), clear);
 	  }
 	  else {
-		  oe->importOECSV_Data(gdi.getText("OECSVFile").c_str(), clear);
+		  oe->importOECSV_Data(gdi.getText("OECSVFile").c_str(), clear, reverseNames);
 	  }
       gdi.dropLine();
       gdi.addButton("CancelRunnerDatabase", "Återgå", CompetitionCB);

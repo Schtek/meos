@@ -619,7 +619,7 @@ bool oEvent::addXMLCompetitorDB(const xmlobject &xentry, int clubId)
 	return true;
 }
 
-bool oEvent::addOECSVCompetitorDB(const vector<string> row)
+bool oEvent::addOECSVCompetitorDB(const vector<string> row, bool reverseNames)
 {
 	// Ident. base de données;Puce;Nom;Prénom;Né;S;N° club;Nom;Ville;Nat;N° cat.;Court;Long;Num1;Num2;Num3;E_Mail;Texte1;Texte2;Texte3;Adr. nom;Rue;Ligne2;Code Post.;Ville;Tél.;Fax;E-mail;Id/Club;Louée
 	enum { OEid = 0, OEcard = 1, OEsurname = 2, OEfirstname = 3, OEbirth = 4, OEsex = 5,
@@ -631,10 +631,14 @@ bool oEvent::addOECSVCompetitorDB(const vector<string> row)
 	string given = row[OEfirstname];
 	string family = row[OEsurname];
 
-	if (given.empty() || family.empty())
+	if (given.empty() && family.empty())
 		return false;
 
-	string name(given + " " + family);
+	string name;
+	if (reverseNames)
+		name = family + ", " + given;
+	else
+		name = given + " " + family;
 
 	// TODO: review use of char[] and make it robust against sex size
 	char sex[2];
@@ -652,9 +656,6 @@ bool oEvent::addOECSVCompetitorDB(const vector<string> row)
 	int clubId = atoi(row[OEclubno].c_str());
 	string clubName = row[OEclubcity];
 	string shortClubName = row[OEclub];
-
-//	if (!shortClubName.empty() && shortClubName.length() < clubName.length())
-//		swap(clubName, shortClubName);
 
 	if (clubName.length() > 0 && IsCharAlphaNumeric(clubName[0])) {
 
@@ -680,7 +681,7 @@ bool oEvent::addOECSVCompetitorDB(const vector<string> row)
 		rde = runnerDB->getRunnerByCard(cardno);
 
 		if (rde && rde->getExtId() != 0)
-			rde = 0; //Other runner, same card
+			rde = NULL; //Other runner, same card
 
 		if (!rde)
 			rde = runnerDB->addRunner(name.c_str(), pid, clubId, cardno);
@@ -1138,7 +1139,7 @@ bool oEvent::importXMLNames(const char *file,
   return true;
 }
 
-void oEvent::importOECSV_Data(const char *oecsvfile, bool clear) {
+void oEvent::importOECSV_Data(const char *oecsvfile, bool clear, bool reverseNames) {
 	// Clear DB if needed
 	if (clear) {
 		runnerDB->clearClubs();
@@ -1159,7 +1160,7 @@ void oEvent::importOECSV_Data(const char *oecsvfile, bool clear) {
 	list<vector<string>>::iterator it;
 
 	for (it = ++(data.begin()); it != data.end(); ++it) {
-		addOECSVCompetitorDB(*it);
+		addOECSVCompetitorDB(*it, reverseNames);
 	}
 
 	//gdibase.addStringUT(0, lang.tl("Antal importerade: ") + itos(clubCount));
