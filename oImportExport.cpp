@@ -163,16 +163,20 @@ bool oEvent::exportOECSV(const char *file, int languageTypeIndex, bool includeSp
 			row[8] = "0";
 
 		// Excel format HH:MM:SS
+		string dash = MakeDash("-");
 		row[9] = it->getStartTimeS();
-		if (row[9] == "-") row[9] = "";
+		if (row[9] == dash)
+			row[9] = "";
 
 		// Excel format HH:MM:SS
 		row[10] = it->getFinishTimeS();
-		if (row[10] == "-") row[10] = "";
+		if (row[10] == dash)
+			row[10] = "";
 
 		// Excel format HH:MM:SS
 		row[11] = formatTimeHMS(it->getRunningTime());
-		if (row[11] == "-") row[11] = "";
+		if (row[11] == dash)
+			row[11] = "";
 
 		row[12] = conv_is(ConvertStatusToOE(it->getStatus()));
 		row[13] = conv_is(it->getClubId());
