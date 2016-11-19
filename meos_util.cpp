@@ -1598,7 +1598,7 @@ int getNameSplitPoint(const string &name) {
 string getGivenName(const string &name) {
   int sp = getNameCommaSplitPoint(name);
   if (sp != -1) {
-	  return trim(name.substr(0, sp - 2));
+	  return trim(name.substr(sp));
   }
 
   sp = getNameSplitPoint(name);
@@ -1611,7 +1611,7 @@ string getGivenName(const string &name) {
 string getFamilyName(const string &name) {
 	int sp = getNameCommaSplitPoint(name);
 	if (sp != -1) {
-		return trim(name.substr(sp));
+		return trim(name.substr(0, sp - 2));
 	}
 
 	sp = getNameSplitPoint(name);

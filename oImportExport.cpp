@@ -218,8 +218,6 @@ bool oEvent::exportOECSV(const char *file, int languageTypeIndex, bool includeSp
 			int startIx = pc->useFirstAsStart() ? 1 : 0;
 			int endIx = pc->useLastAsFinish() ? pc->nControls - 1 : pc->nControls;
 
-			// And what about extra controls? In OE CSV, they are stored after the others.
-
 			for (int k = startIx, m = 0; k < endIx; k++, m += 2) {
 				if (pc->getControl(k)->isRogaining(hasRogaining))
 					continue;
@@ -231,12 +229,12 @@ bool oEvent::exportOECSV(const char *file, int languageTypeIndex, bool includeSp
 			}
 
 			// Extra punches
-			vector<pPunch> punches;
+			vector<pFreePunch> punches;
 
-			it->getCard()->getPunches(punches);
-			for (vector<pPunch>::iterator punchIt = punches.begin(); punchIt != punches.end(); ++punchIt) {
+			oe->getPunchesForRunner(it->getId(), punches);
+			for (vector<pFreePunch>::iterator punchIt = punches.begin(); punchIt != punches.end(); ++punchIt) {
 				pPunch punch = *punchIt;
-				if (!punch->isUsed && !(punch->isFinish() && !pc->useLastAsFinish()) && !(punch->isStart() && !pc->useFirstAsStart()))
+				if (!punch->isUsed && !(punch->isFinish() && !pc->useLastAsFinish()) && !(punch->isStart() && !pc->useFirstAsStart()) && !punch->isCheck())
 				{
 					row.push_back(punch->getType());
 
