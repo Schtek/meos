@@ -206,6 +206,7 @@ bool oEvent::exportOECSV(const char *file, int languageTypeIndex, bool includeSp
 			// Add here split times
 
 			// row[45]: finish time
+			row[45] = row[10];
 
 			// row[46; 48; 50; ..]: control id
 			// row[47; 49; 51; ..]: punch time of control id row[i-1]
