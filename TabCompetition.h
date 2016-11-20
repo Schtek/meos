@@ -113,7 +113,7 @@ class TabCompetition :
   void newCompetitionGuide(gdioutput &gdi, int step);
 
   void entryForm(gdioutput &gdi, bool isGuide);
-  void saveEntries(gdioutput &gdi, bool removeRemoved, bool isGuide);
+  void saveEntries(gdioutput &gdi, bool removeRemoved, bool isGuide, bool reverseNames);
 
   void selectStartlistOptions(gdioutput &gdi);
   void selectExportSplitOptions(gdioutput &gdi);

@@ -228,11 +228,11 @@ bool csvparser::ImportOS_CSV(oEvent &event, const char *file)
 }
 
 
-bool csvparser::ImportOE_CSV(oEvent &event, const char *file)
+bool csvparser::ImportOE_CSV(oEvent &event, const char *file, bool reverseNames)
 {
   enum {OEstno=0, OEcard=1, OEid=2, OEsurname=3, OEfirstname=4,
       OEbirth=5, OEsex=6, OEstart=9,  OEfinish=10, OEstatus=12,
-      OEclubno=13, OEclub=15, OEnat=16, OEclassno=17, OEclass=18, OEbib=23,
+      OEclubno=13, OEclub=14, OEclubcity=15, OEnat=16, OEclassno=17, OEclass=18, OEbib=23,
       OErent=35, OEfee=36, OEpaid=37, OEcourseno=38, OEcourse=39,
       OElength=40};
 
@@ -256,13 +256,15 @@ bool csvparser::ImportOE_CSV(oEvent &event, const char *file)
       nimport++;
 
       int clubId = atoi(sp[OEclubno]);
-      pClub pclub = event.getClubCreate(clubId, sp[OEclub]);
+      pClub pclub = event.getClubCreate(clubId, sp[OEclubcity]);
 
       if (pclub) {
         if (strlen(sp[OEnat])>0)
           pclub->getDI().setString("Nationality", sp[OEnat]);
 
-        pclub->synchronize(true);
+		pclub->getDI().setString("ShortName", string(sp[OEclub]).substr(0, 8));
+        pclub->setExtIdentifier(clubId);
+		pclub->synchronize(true);
       }
 
       int id = atoi(sp[OEid]);
@@ -302,7 +304,13 @@ bool csvparser::ImportOE_CSV(oEvent &event, const char *file)
       pr->setEntrySource(externalSourceId);
 
       if (!pr->hasFlag(oAbstractRunner::FlagUpdateName)) {
-        string name = string(sp[OEfirstname])+" "+string(sp[OEsurname]);
+		  string name;
+		  if (reverseNames) {
+			  name = string(sp[OEsurname]) + ", " + string(sp[OEfirstname]);
+		  }
+		  else {
+			  name = string(sp[OEfirstname]) + " " + string(sp[OEsurname]);
+		  }
         pr->setName(name, false);
       }
       pr->setClubId(pclub ? pclub->getId():0);

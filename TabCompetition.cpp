@@ -2135,10 +2135,11 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       gdi.disableInput("Cancel");
       gdi.disableInput("BrowseEntries");
       bool removeRemoved = gdi.isChecked("RemoveRemoved");
-
-      try {
+	  bool reverseNames = gdi.isChecked("ReverseNames");
+	  
+	  try {
         gdi.autoRefresh(true);
-        saveEntries(gdi, removeRemoved, false);
+        saveEntries(gdi, removeRemoved, false, reverseNames);
       }
       catch (std::exception &) {
         gdi.enableEditControls(true);
@@ -3539,11 +3540,13 @@ void TabCompetition::entryForm(gdioutput &gdi, bool isGuide) {
   gdi.dropLine();
   gdi.addButton("BrowseEntries", "Bläddra...", CompetitionCB).setExtra("FileName");
   gdi.popX();
-  if (!isGuide && oe->getNumRunners() > 0) {
     gdi.dropLine(2.2);
-    gdi.addCheckbox("RemoveRemoved", "Ta bort eventuella avanmälda deltagare", 0, true);
+	if (!isGuide && oe->getNumRunners() > 0) {
+		gdi.addCheckbox("RemoveRemoved", "Ta bort eventuella avanmälda deltagare", 0, true);
+	}
+	gdi.addCheckbox("ReverseNames", "Import names as \"surname, first name\"", 0, true);
     gdi.popX();
-  }
+  
 
   gdi.dropLine(2.5);
   gdi.addInput("FileNameRank", "", 48, 0, "Ranking (IOF, xml)");
@@ -3554,7 +3557,7 @@ void TabCompetition::entryForm(gdioutput &gdi, bool isGuide) {
   gdi.dropLine(3);
 }
 
-void TabCompetition::saveEntries(gdioutput &gdi, bool removeRemoved, bool isGuide) {
+void TabCompetition::saveEntries(gdioutput &gdi, bool removeRemoved, bool isGuide, bool reverseNames) {
   string filename[5];
   filename[0] = gdi.getText("FileNameCmp");
   filename[1] = gdi.getText("FileNameCls");
@@ -3579,7 +3582,7 @@ void TabCompetition::saveEntries(gdioutput &gdi, bool removeRemoved, bool isGuid
         gdi.addString("", 0, "Importerar OE2003 csv-fil...");
         gdi.refresh();
         gdi.setWaitCursor(true);
-        if (csv.ImportOE_CSV(*oe, File)) {
+        if (csv.ImportOE_CSV(*oe, File, reverseNames)) {
           gdi.addString("", 0, "Klart. X deltagare importerade.#" + itos(csv.nimport));
         }
         else gdi.addString("", 0, "Försöket misslyckades.");

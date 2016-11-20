@@ -180,7 +180,7 @@ bool oEvent::exportOECSV(const char *file, int languageTypeIndex, bool includeSp
 
 		row[12] = conv_is(ConvertStatusToOE(it->getStatus()));
 		row[13] = conv_is(it->getClubId());
-
+		row[14] = it->getClubRef()->getDI().getString("ShortName");
 		row[15] = it->getClub();
 		row[16] = di.getString("Nationality");
 		row[17] = conv_is(it->getClassId());

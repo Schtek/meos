@@ -69,8 +69,9 @@ int TabCompetition::newGuideCB(gdioutput &gdi, int type, void *data)
     else if (bi.id == "DoImportEntries") {
       createCompetition(gdi);
       try {
-        gdi.autoRefresh(true);
-        saveEntries(gdi, false, true);
+		  bool reverseNames = gdi.isChecked("ReverseNames");
+		  gdi.autoRefresh(true);
+          saveEntries(gdi, false, true, reverseNames);
       }
       catch (std::exception &) {
         newCompetitionGuide(gdi, 1);
