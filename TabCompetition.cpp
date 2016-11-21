@@ -849,6 +849,9 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       gdi.popX();
 	  gdi.addCheckbox("Clear", "Nollställ databaser", 0, true);
 	  gdi.addCheckbox("ReverseNames", "Import names as \"surname, first name\"", 0, true);
+	  gdi.dropLine(1.5);
+	  gdi.popX();
+	  gdi.addCheckbox("UseFFCOClubMapping", "Use French Federation of Orienteering mapping", 0, oe->getPropertyString("Language", "English") == "Français");
 	  gdi.dropLine(3);
 
       gdi.popX();
@@ -867,13 +870,14 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       gdi.addString("", 0, "Importerar...");
       bool clear = gdi.isChecked("Clear");
 	  bool reverseNames = gdi.isChecked("ReverseNames");
+	  bool useFFCOClubMapping = gdi.isChecked("UseFFCOClubMapping");
 
 	  if (strlen(gdi.getText("ClubFile").c_str()) != 0 || strlen(gdi.getText("CmpFile").c_str()) != 0) {
 		  oe->importXML_IOF_Data(gdi.getText("ClubFile").c_str(),
 			  gdi.getText("CmpFile").c_str(), clear);
 	  }
 	  else {
-		  oe->importOECSV_Data(gdi.getText("OECSVFile").c_str(), clear, reverseNames);
+		  oe->importOECSV_Data(gdi.getText("OECSVFile").c_str(), clear, reverseNames, useFFCOClubMapping);
 	  }
       gdi.dropLine();
       gdi.addButton("CancelRunnerDatabase", "Återgå", CompetitionCB);
@@ -1886,6 +1890,8 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       bool individual = !gdi.hasField("ExportTeam") || gdi.isChecked("ExportTeam");
       gdi.getSelection("ClassNewEntries", allTransfer);
       int FilterIndex = gdi.getSelectedItem("Type").first;
+	  int cSVLanguageHeaderIndex = gdi.getSelectedItem("LanguageType").first;
+	  bool useFFCOClubMapping = gdi.isChecked("UseFFCOClubMapping");
 
       gdi.setWaitCursor(true);
 
@@ -1895,7 +1901,7 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
                                 save.c_str(), useUTC, allTransfer, individual);
       }
       else if (FilterIndex == 3) {
-        oe->exportOECSV(save.c_str(), 1, false);
+        oe->exportOECSV(save.c_str(), cSVLanguageHeaderIndex, false, useFFCOClubMapping);
       }
 	  else {
         oListParam par;
@@ -1927,6 +1933,7 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       int FilterIndex = gdi.getSelectedItem("Type").first;
 	  int cSVLanguageHeaderIndex = gdi.getSelectedItem("LanguageType").first;
 	  bool includeSplits = gdi.isChecked("ExportSplitTimes");
+	  bool useFFCOClubMapping = gdi.isChecked("UseFFCOClubMapping");
 
       bool unroll = gdi.isChecked("UnrollLoops"); // If not applicable, field does not exist.
 
@@ -1971,7 +1978,7 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
         }
       }
       else if (FilterIndex == 3) {
-        oe->exportOECSV(save.c_str(), cSVLanguageHeaderIndex, includeSplits);
+        oe->exportOECSV(save.c_str(), cSVLanguageHeaderIndex, includeSplits, useFFCOClubMapping);
       }
 	  else {
         oListParam par;
@@ -2136,10 +2143,11 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       gdi.disableInput("BrowseEntries");
       bool removeRemoved = gdi.isChecked("RemoveRemoved");
 	  bool reverseNames = gdi.isChecked("ReverseNames");
-	  
+	  bool useFFCOClubMapping = gdi.isChecked("UseFFCOClubMapping");
+
 	  try {
         gdi.autoRefresh(true);
-        saveEntries(gdi, removeRemoved, false, reverseNames);
+        saveEntries(gdi, removeRemoved, false, reverseNames, useFFCOClubMapping);
       }
       catch (std::exception &) {
         gdi.enableEditControls(true);
@@ -2314,11 +2322,17 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
 		  if (gdi.getSelectedItem("Type").first == 3) {
 			  // OE CSV
 			  gdi.enableInput("LanguageType");
-			  gdi.enableInput("ExportSplitTimes");
+			  if (gdi.hasField("ExportSplitTimes")) {
+				  gdi.enableInput("ExportSplitTimes");
+			  }
+			  gdi.enableInput("UseFFCOClubMapping");
 		  }
 		  else {
 			  gdi.disableInput("LanguageType");
-			  gdi.disableInput("ExportSplitTimes");
+			  if (gdi.hasField("ExportSplitTimes")) {
+				  gdi.disableInput("ExportSplitTimes");
+			  }
+			  gdi.disableInput("UseFFCOClubMapping");
 		  }
 	  }
     }
@@ -3551,11 +3565,14 @@ void TabCompetition::entryForm(gdioutput &gdi, bool isGuide) {
   gdi.dropLine();
   gdi.addButton("BrowseEntries", "Bläddra...", CompetitionCB).setExtra("FileName");
   gdi.popX();
-    gdi.dropLine(2.2);
+  gdi.dropLine(2.2);
 	if (!isGuide && oe->getNumRunners() > 0) {
 		gdi.addCheckbox("RemoveRemoved", "Ta bort eventuella avanmälda deltagare", 0, true);
 	}
   gdi.addCheckbox("ReverseNames", "Import names as \"surname, first name\"", 0, true);
+  gdi.popX();
+  gdi.dropLine(1.5);
+  gdi.addCheckbox("UseFFCOClubMapping", "Use French Federation of Orienteering mapping", 0, oe->getPropertyString("Language", "English") == "Français");
   gdi.popX();
   
 
@@ -3568,7 +3585,7 @@ void TabCompetition::entryForm(gdioutput &gdi, bool isGuide) {
   gdi.dropLine(3);
 }
 
-void TabCompetition::saveEntries(gdioutput &gdi, bool removeRemoved, bool isGuide, bool reverseNames) {
+void TabCompetition::saveEntries(gdioutput &gdi, bool removeRemoved, bool isGuide, bool reverseNames, bool useFFCOClubmapping) {
   string filename[5];
   filename[0] = gdi.getText("FileNameCmp");
   filename[1] = gdi.getText("FileNameCls");
@@ -3593,7 +3610,7 @@ void TabCompetition::saveEntries(gdioutput &gdi, bool removeRemoved, bool isGuid
         gdi.addString("", 0, "Importerar OE2003 csv-fil...");
         gdi.refresh();
         gdi.setWaitCursor(true);
-        if (csv.ImportOE_CSV(*oe, File, reverseNames)) {
+        if (csv.ImportOE_CSV(*oe, File, reverseNames, useFFCOClubmapping)) {
           gdi.addString("", 0, "Klart. X deltagare importerade.#" + itos(csv.nimport));
         }
         else gdi.addString("", 0, "Försöket misslyckades.");
@@ -3656,6 +3673,38 @@ void TabCompetition::selectStartlistOptions(gdioutput &gdi) {
 
   gdi.addItem("Type", types);
   gdi.selectFirstItem("Type");
+
+
+  gdi.addSelection("LanguageType", 250, 200, CompetitionCB, "Export language:");
+  vector<pair<string, size_t>> typeLanguages;
+  typeLanguages.push_back(make_pair(lang.tl("English"), 1));
+  typeLanguages.push_back(make_pair(lang.tl("Svenska"), 2));
+  typeLanguages.push_back(make_pair(lang.tl("Deutsch"), 3));
+  typeLanguages.push_back(make_pair(lang.tl("Dansk"), 4));
+  typeLanguages.push_back(make_pair(lang.tl("Français"), 5));
+  typeLanguages.push_back(make_pair(lang.tl("Russian"), 6));
+
+  gdi.addItem("LanguageType", typeLanguages);
+  string currentLanguage = oe->getPropertyString("Language", "English");
+  int defaultLanguageType = 1;
+
+  if (currentLanguage == "English")
+	  defaultLanguageType = 1;
+  else if (currentLanguage == "Svenska")
+	  defaultLanguageType = 2;
+  else if (currentLanguage == "Deutsch")
+	  defaultLanguageType = 3;
+  else if (currentLanguage == "Dansk")
+	  defaultLanguageType = 4;
+  else if (currentLanguage == "Français")
+	  defaultLanguageType = 5;
+  else if (currentLanguage == "Russian(ISO 8859 - 5)")
+	  defaultLanguageType = 6;
+
+  gdi.selectItemByData("LanguageType", defaultLanguageType);
+  gdi.disableInput("LanguageType");
+  gdi.addCheckbox("UseFFCOClubMapping", "Use French Federation of Orienteering mapping", 0, defaultLanguageType == 5);
+  gdi.disableInput("UseFFCOClubMapping");
 
   ClassConfigInfo cnf;
   oe->getClassConfigurationInfo(cnf);
@@ -3733,6 +3782,8 @@ void TabCompetition::selectExportSplitOptions(gdioutput &gdi) {
   gdi.disableInput("LanguageType");
   gdi.addCheckbox("ExportSplitTimes", "Export Split Times", 0, false);
   gdi.disableInput("ExportSplitTimes");
+  gdi.addCheckbox("UseFFCOClubMapping", "Use French Federation of Orienteering mapping", 0, defaultLanguageType == 5);
+  gdi.disableInput("UseFFCOClubMapping");
 
   ClassConfigInfo cnf;
   oe->getClassConfigurationInfo(cnf);

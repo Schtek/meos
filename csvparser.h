@@ -97,7 +97,7 @@ public:
 
   int split(char *line, vector<char *> &split);
 
-  bool ImportOE_CSV(oEvent &event, const char *file, bool reverseNames);
+  bool ImportOE_CSV(oEvent &event, const char *file, bool reverseNames, bool useFFCOClubMapping);
   int iscsv(const char *file);
   csvparser();
   virtual ~csvparser();

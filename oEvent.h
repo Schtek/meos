@@ -832,7 +832,7 @@ public:
                           bool useUTC, const set<int> &classes,
                           bool teamsAsIndividual);
 
-  bool exportOECSV(const char *file, int LanguageTypeIndex, bool includeSplits);
+  bool exportOECSV(const char *file, int LanguageTypeIndex, bool includeSplits, bool useFFCOClubMapping);
   bool save();
   void duplicate();
   void newCompetition(const string &Name);
@@ -1132,7 +1132,7 @@ protected:
   pClub getClubCreate(int clubId);
 
   bool addXMLCompetitorDB(const xmlobject &xentry, int ClubId);
-  bool addOECSVCompetitorDB(const vector<string> row, bool reverseNames);
+  bool addOECSVCompetitorDB(const vector<string> row, bool reverseNames, bool useFFCOClubMapping);
   pRunner addXMLPerson(const xmlobject &person);
   pRunner addXMLStart(const xmlobject &xstart, pClass cls);
   pRunner addXMLEntry(const xmlobject &xentry, int ClubId, bool setClass);
@@ -1206,7 +1206,7 @@ public:
   void analyseDNS(vector<pRunner> &unknown_dns, vector<pRunner> &known_dns,
                   vector<pRunner> &known, vector<pRunner> &unknown);
 
-  void importOECSV_Data(const char * oecsvfile, bool clear, bool reverseNames);
+  void importOECSV_Data(const char * oecsvfile, bool clear, bool reverseNames, bool useFFCOClubMapping);
   void importXML_IOF_Data(const char *clubfile,
                           const char *competitorfile, bool clear);
 

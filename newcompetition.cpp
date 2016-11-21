@@ -70,8 +70,9 @@ int TabCompetition::newGuideCB(gdioutput &gdi, int type, void *data)
       createCompetition(gdi);
       try {
 		  bool reverseNames = gdi.isChecked("ReverseNames");
+		  bool useFFCOClubmapping = gdi.isChecked("UseFFCOClubMapping");
 		  gdi.autoRefresh(true);
-          saveEntries(gdi, false, true, reverseNames);
+          saveEntries(gdi, false, true, reverseNames, useFFCOClubmapping);
       }
       catch (std::exception &) {
         newCompetitionGuide(gdi, 1);

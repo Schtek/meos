@@ -228,7 +228,7 @@ bool csvparser::ImportOS_CSV(oEvent &event, const char *file)
 }
 
 
-bool csvparser::ImportOE_CSV(oEvent &event, const char *file, bool reverseNames)
+bool csvparser::ImportOE_CSV(oEvent &event, const char *file, bool reverseNames, bool useFFCOClubMapping)
 {
   enum {OEstno=0, OEcard=1, OEid=2, OEsurname=3, OEfirstname=4,
       OEbirth=5, OEsex=6, OEstart=9,  OEfinish=10, OEstatus=12,
@@ -256,14 +256,30 @@ bool csvparser::ImportOE_CSV(oEvent &event, const char *file, bool reverseNames)
       nimport++;
 
       int clubId = atoi(sp[OEclubno]);
-      pClub pclub = event.getClubCreate(clubId, sp[OEclubcity]);
+	  string clubName;
+	  string shortClubName;
+	  string clubCity;
+
+	  if (useFFCOClubMapping) {
+		  clubName = sp[OEclubcity];
+		  shortClubName = sp[OEclub];
+		  clubCity = "";
+	  }
+	  else {
+		  clubName = sp[OEclub];
+		  shortClubName = "";
+		  clubCity = sp[OEclubcity];
+	  }
+	  
+	  pClub pclub = event.getClubCreate(clubId, clubName);
 
       if (pclub) {
         if (strlen(sp[OEnat])>0)
           pclub->getDI().setString("Nationality", sp[OEnat]);
 
-		pclub->getDI().setString("ShortName", string(sp[OEclub]).substr(0, 8));
-        pclub->setExtIdentifier(clubId);
+		pclub->getDI().setString("ShortName", shortClubName.substr(0, 8));
+		pclub->getDI().setString("City", clubCity.substr(0, 23));
+		pclub->setExtIdentifier(clubId);
 		pclub->synchronize(true);
       }
 
