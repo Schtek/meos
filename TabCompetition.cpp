@@ -2310,6 +2310,17 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       else if (gdi.hasField("ExportTeam")) {
         gdi.setInputStatus("ExportTeam", lbi.data == 1); // Enable on IOF-XML
       }
+	  else if (gdi.hasField("LanguageType")) { // Enable / Disable options for OE CSV export of results
+		  if (gdi.getSelectedItem("Type").first == 3) {
+			  // OE CSV
+			  gdi.enableInput("LanguageType");
+			  gdi.enableInput("ExportSplitTimes");
+		  }
+		  else {
+			  gdi.disableInput("LanguageType");
+			  gdi.disableInput("ExportSplitTimes");
+		  }
+	  }
     }
   }
   else if (type== GUI_INPUT) {
@@ -3544,8 +3555,8 @@ void TabCompetition::entryForm(gdioutput &gdi, bool isGuide) {
 	if (!isGuide && oe->getNumRunners() > 0) {
 		gdi.addCheckbox("RemoveRemoved", "Ta bort eventuella avanmälda deltagare", 0, true);
 	}
-	gdi.addCheckbox("ReverseNames", "Import names as \"surname, first name\"", 0, true);
-    gdi.popX();
+  gdi.addCheckbox("ReverseNames", "Import names as \"surname, first name\"", 0, true);
+  gdi.popX();
   
 
   gdi.dropLine(2.5);
@@ -3719,8 +3730,9 @@ void TabCompetition::selectExportSplitOptions(gdioutput &gdi) {
 	  defaultLanguageType = 6;
 
   gdi.selectItemByData("LanguageType", defaultLanguageType);
-
+  gdi.disableInput("LanguageType");
   gdi.addCheckbox("ExportSplitTimes", "Export Split Times", 0, false);
+  gdi.disableInput("ExportSplitTimes");
 
   ClassConfigInfo cnf;
   oe->getClassConfigurationInfo(cnf);
