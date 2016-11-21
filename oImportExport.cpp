@@ -1203,6 +1203,9 @@ void oEvent::importOECSV_Data(const char *oecsvfile, bool clear, bool reverseNam
 		addOECSVCompetitorDB(*it, reverseNames, useFFCOClubMapping);
 	}
 
+	gdibase.addString("", 0, "Imported " + to_string(runnerDB->getClubDB().size()) + " clubs and " + to_string(runnerDB->getRunnerDB().size()) + " runners.");
+	gdibase.refresh();
+
 	setProperty("DatabaseUpdate", getRelativeDay());
 
 	// Save DB
