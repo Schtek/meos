@@ -1582,6 +1582,7 @@ void MetaList::initSymbols() {
     typeToSymbol[lRunnerUMMasterPoint] = "RunnerUMMasterPoint";
     typeToSymbol[lRunnerTimePlaceFixed] = "RunnerTimePlaceFixed";
     typeToSymbol[lRunnerLegNumberAlpha] = "RunnerLegNumberAlpha";
+    typeToSymbol[lRunnerLegNumber] = "RunnerLegNumber";
 
     typeToSymbol[lResultModuleTime] = "ResultModuleTime";
     typeToSymbol[lResultModuleNumber] = "ResultModuleNumber";
@@ -1710,6 +1711,7 @@ void MetaList::initSymbols() {
     orderToSymbol[SortByStartTime] = "StartTime";
     orderToSymbol[ClassPoints] = "ClassPoints";
     orderToSymbol[ClassTotalResult] = "ClassTotalResult";
+    orderToSymbol[ClassTeamLegResult] = "ClassTeamLegResult";
     orderToSymbol[CourseResult] = "CourseResult";
     orderToSymbol[ClassTeamLeg] = "ClassTeamLeg";
     orderToSymbol[Custom] = "CustomSort";
@@ -2265,20 +2267,20 @@ void MetaList::setSubFilters(const vector<bool> &filters) {
 
 void MetaList::getResultModule(const oEvent &oe, vector< pair<string, size_t> > &modules, int &currentModule) const {
   modules.clear();
-  vector< pair<string, string> > mol;
+  vector< pair<int, pair<string, string> > > mol;
   oe.getGeneralResults(false, mol, true);
   modules.push_back(make_pair(lang.tl("Standard"), 0));
   currentModule = 0;
 
   for (size_t k = 0; k < mol.size(); k++) {
-    modules.push_back(make_pair(mol[k].second, k+100));
-    if (resultModule == mol[k].first)
-      currentModule = k + 100;
+    modules.push_back(make_pair(mol[k].second.second, mol[k].first));
+    if (resultModule == mol[k].second.first)
+      currentModule = mol[k].first;
   }
 }
 
 MetaList &MetaList::setResultModule(const oEvent &oe, int moduleIx) {
-  vector< pair<string, string> > mol;
+  vector< pair<int, pair<string, string> > > mol;
   oe.getGeneralResults(false, mol, false);
   if (moduleIx == 0) {
     //resultModule = "";
@@ -2287,8 +2289,8 @@ MetaList &MetaList::setResultModule(const oEvent &oe, int moduleIx) {
   }
   else {
     for (size_t k = 0; k < mol.size(); k++) {
-      if (moduleIx == k + 100) {
-        retagResultModule(mol[k].first, false);
+      if (moduleIx == mol[k].first) {
+        retagResultModule(mol[k].second.first, false);
         return *this;
       }
     }
@@ -2439,11 +2441,11 @@ void MetaListContainer::enumerateLists(vector< pair<string, pair<string, string>
 
 int MetaList::getResultModuleIndex(oEvent *oe, oListInfo &li, const MetaListPost &lp) const {
   if (resultToIndex.empty()) {
-    vector< pair<string, string> > tagNameList;
+    vector< pair<int, pair<string, string> > > tagNameList;
     oe->getGeneralResults(false, tagNameList, false);
     resultToIndex[""] = -1;
     for (size_t k = 0; k < tagNameList.size(); k++) {
-      resultToIndex[tagNameList[k].first] = k;
+      resultToIndex[tagNameList[k].second.first] = k;
     }
   }
 

@@ -247,6 +247,9 @@ protected:
 
   bool compareRow(int indexA, int indexB) const;
 public:
+
+  void setTableText(gdioutput &gdi, int editRow, int editCol, const string &bf);
+
   int getTableId() const {return id;}
   static void resetTableIds() {uniqueId = 1;}
 

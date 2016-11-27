@@ -104,8 +104,9 @@ private:
   DWORD color;
   DWORD color2;
   bool drawBorder;
-  RECT rc;
   DWORD borderColor;
+  RECT rc;
+ 
   bool border3D;
 public:
   RectangleInfo(): color(0), color2(0), borderColor(0), border3D(false), drawBorder(false) {memset(&rc, 0, sizeof(RECT));}
@@ -114,7 +115,8 @@ public:
   RectangleInfo &set3D(bool is3d) {border3D = is3d; return *this;}
   RectangleInfo &setBorderColor(GDICOLOR c) {borderColor = c; return *this;}
   friend class gdioutput;
-
+ 
+  RectangleInfo &changeDimension(gdioutput &gdi, int dx, int dy); 
 
   HWND getControlWindow() const {throw std::exception("Unsupported");}
 };
@@ -265,7 +267,7 @@ public:
   ListBoxInfo() : hWnd(0), callBack(0), IsCombo(false), index(-1),
               writeLock(false), ignoreCheck(false), isEditControl(true),
               originalProc(0), lbiSync(0), multipleSelection(false), 
-              xp(0), yp(0), width(0), height(0), data(0) {}
+              xp(0), yp(0), width(0), height(0), data(0), lastTabStop(0) {}
   string text;
   size_t data;
   int index;
@@ -277,6 +279,7 @@ public:
 
   void copyUserData(ListBoxInfo &userLBI) const;
 
+  int getWidth() const {return int(width);}
   int getX() const {return xp;}
   int getY() const {return yp;}
   bool isCombo() const {return IsCombo;}
@@ -290,6 +293,7 @@ private:
   double width;
   double height;
   HWND hWnd;
+  int lastTabStop;
 
   bool multipleSelection;
   bool isEditControl;

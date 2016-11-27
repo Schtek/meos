@@ -163,7 +163,10 @@ public:
 
   /** Returns number of shortenings taken. */
   virtual int getNumShortening() const = 0;
-  
+
+  int getPaymentMode() const;
+  void setPaymentMode(int mode);
+
   enum TransferFlags {
     FlagTransferNew = 1,
     FlagUpdateCard = 2,
@@ -410,7 +413,7 @@ protected:
   map<int, int> priority;
   int cPriority;
 
-  static const int dataSize = 128;
+  static const int dataSize = 192;
   int getDISize() const {return dataSize;}
 
   BYTE oData[dataSize];
@@ -542,7 +545,7 @@ public:
   int getRaceRunningTime(int leg) const;
 
   // Get the complete name, including team and club.
-  string getCompleteIdentification() const;
+  string getCompleteIdentification(bool includeExtra = true) const;
 
   /// Get total status for this running (including team/earlier races)
   RunnerStatus getTotalStatus() const;

@@ -50,6 +50,7 @@ protected:
   //Adjustment of this punch, loaded from control
   int tTimeAdjust;
 
+  volatile int tCardIndex; // Index into card
   int tIndex; // Control match index in course
   int tMatchControlId;
   bool hasBeenPlayed;

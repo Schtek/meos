@@ -22,6 +22,8 @@
 ************************************************************************/
 #include "tabbase.h"
 
+class SpeakerMonitor;
+
 class spkClassSelection {
   // The currently selected leg
   int selectedLeg;
@@ -86,6 +88,10 @@ private:
 
   // Runner Id:s to set priority for
   vector<int> runnersToSet;
+
+  SpeakerMonitor *speakerMonitor;
+
+  SpeakerMonitor *getSpeakerMonitor();
 
 public:
 

@@ -82,7 +82,8 @@ int csvparser::iscsv(const char *file)
   if (sp.size()<5)//No csv
     return 0;
 
-  if (_stricmp(sp[1], "Descr")==0 || _stricmp(sp[1], "Namn")==0 || _stricmp(sp[1], "Descr.")==0) //OS-fil (SWE/ENG)??
+  if (_stricmp(sp[1], "Descr")==0 || _stricmp(sp[1], "Namn")==0
+      || _stricmp(sp[1], "Descr.")==0 || _stricmp(sp[1], "Navn")==0) //OS-fil (SWE/ENG)??
     return 2;
   else return 1; //OE?!
 }
@@ -639,7 +640,7 @@ bool csvparser::ImportRAID(oEvent &event, const char *file)
     vector<char *> sp;
     split(bf, sp);
 
-    if (sp.size()>8) {
+    if (sp.size()>7) {
       nimport++;
 
       int ClubId=0;
@@ -652,9 +653,18 @@ bool csvparser::ImportRAID(oEvent &event, const char *file)
       pTeam team=event.addTeam(sp[RAIDteam], ClubId,  ClassId);
 
       team->setStartNo(atoi(sp[RAIDid]), false);
-      team->getDI().setInt("SortIndex", atoi(sp[RAIDcanoe]));
+      if (sp.size()>8)
+        team->getDI().setInt("SortIndex", atoi(sp[RAIDcanoe]));
       oDataInterface teamDI=team->getDI();
       teamDI.setDate("EntryDate", sp[RAIDedate]);
+      
+      if (pc) {
+        if (pc->getNumStages()<2)
+          pc->setNumStages(2);
+
+        pc->setLegType(0, LTNormal);
+        pc->setLegType(1, LTIgnore);
+      }
 
       //Import runners!
       pRunner r1=event.addRunner(sp[RAIDrunner1], ClubId, ClassId, 0, 0, false);
@@ -663,19 +673,67 @@ bool csvparser::ImportRAID(oEvent &event, const char *file)
       pRunner r2=event.addRunner(sp[RAIDrunner2], ClubId, ClassId, 0, 0, false);
       team->setRunner(1, r2, false);
 
-      if (pc) {
-        if (pc->getNumStages()<2)
-          pc->setNumStages(2);
-
-        pc->setLegType(0, LTNormal);
-        pc->setLegType(1, LTIgnore);
-      }
       team->apply(true, 0, false);
     }
   }
   fin.close();
 
   return true;
+}
+
+int csvparser::selectPunchIndex(const string &competitionDate, const vector<char *> &sp, 
+                                int &cardIndex, int &timeIndex, int &dateIndex,
+                                string &processedTime, string &processedDate) {
+  int ci = -1;
+  int ti = -1;
+  int di = -1;
+  string pt, date;
+  int maxCardNo = 0;
+  processedDate.clear();
+  for (size_t k = 0; k < sp.size(); k++) {
+    processGeneralTime(sp[k], pt, date);
+    if (!pt.empty()) {
+      if (ti == -1) {
+        ti = k;
+        pt.swap(processedTime);
+      }
+      else {
+        return -1; // Not a unique time
+      }
+      if (!date.empty()) {
+        date.swap(processedDate);
+        di = k;
+      }
+    }
+    else if (k == 2 && strlen(sp[k]) == 2 && processedDate.empty()) {
+      processedDate = sp[k]; // Old weekday format
+      dateIndex = 2;
+    }
+    else {
+      int cno = atoi(sp[k]);
+      if (cno > maxCardNo) {
+        maxCardNo = cno;
+        ci = k;
+      }  
+    }
+    
+  }
+
+  if (ti == -1)
+    return 0; // No time found
+  if (ci == -1)
+    return 0; // No card number found
+
+  if (timeIndex >= 0 && timeIndex != ti)
+    return -1; // Inconsistent
+
+  if (cardIndex >= 0 && cardIndex != ci)
+    return -1; // Inconsistent
+
+  timeIndex = ti;
+  cardIndex = ci;
+  dateIndex = di;
+  return 1;
 }
 
 bool csvparser::importPunches(const oEvent &oe, const char *file, vector<PunchInfo> &punches)
@@ -690,22 +748,32 @@ bool csvparser::importPunches(const oEvent &oe, const char *file, vector<PunchIn
   fin.getline(bf, 1024);
 
   nimport=0;
+  int cardIndex = -1;
+  int timeIndex = -1;
+  int dateIndex = -1;
+
+  string processedTime, processedDate;
+  const string date = oe.getDate();
+  vector<char *> sp;
+  
   while (!fin.eof()) {
     fin.getline(bf, 1024);
-
-    vector<char *> sp;
+    sp.clear();
     split(bf, sp);
 
-    if (sp.size()==4) {
-      int no = atoi(sp[0]);
-      int card = atoi(sp[1]);
-      int time = oe.getRelativeTime(sp[3]);
+    int ret = selectPunchIndex(date, sp, cardIndex, timeIndex, dateIndex,
+                               processedTime, processedDate); 
+    if (ret == -1)
+      return false; // Invalid file
+    if (ret > 0) {
+      int card = atoi(sp[cardIndex]);
+      int time = oe.getRelativeTime(processedTime);
 
-      if (no>0 && card>0) {
+      if (card>0) {
         PunchInfo pi;
         pi.card = card;
         pi.time = time;
-        strncpy_s(pi.date, sizeof(pi.date), sp[2], 26);
+        strncpy_s(pi.date, sizeof(pi.date), processedDate.c_str(), 26);
         pi.date[26] = 0;
         punches.push_back(pi);
         nimport++;
@@ -868,17 +936,58 @@ bool csvparser::importCards(const oEvent &oe, const char *file, vector<SICard> &
   return true;
 }
 
-
 void csvparser::parse(const string &file, list< vector<string> > &data) {
   data.clear();
 
   fin.open(file.c_str());
-  char bf[1024];
+  const size_t bf_size = 4096;
+  char bf[4096];
   if (!fin.good())
     throw meosException("Failed to read file");
 
+  bool isUTF8 = false;
+  bool isUnicode = false;
+  bool firstLine = true;
+  wstring wideString;
   while(!fin.eof()) {
-    fin.getline(bf, 1024);
+    memset(bf, 0, bf_size);
+    fin.getline(bf, bf_size);
+    if (firstLine) {
+      if (bf[0] == -17 && bf[1] == -69 && bf[2] == -65) {
+        isUTF8 = true;
+        for (int k = 0; k <bf_size-3; k++) {
+          bf[k] = bf[k+3];
+        }
+      }
+      else if (bf[0] == -1 && bf[1] == -2) {
+        isUnicode = true;
+        for (int k = 0; k < bf_size-2; k++) {
+          bf[k] = bf[k+2];
+        }
+      }
+    }
+
+    if (isUnicode) {
+      int len = 0;
+      if (bf[len] == 0 && bf[len+1] != 0)
+        len++;
+      wideString.clear();
+      while ((bf[len] != 0 || bf[len+1] != 0) && len < (bf_size -2)) {
+        wchar_t &c = *(wchar_t *)&bf[len];
+        wideString.push_back(c);
+        len+=2;
+      }
+      if (wideString.length() > 0) {
+        int untranslated;
+        WideCharToMultiByte(CP_ACP, 0, wideString.c_str(), wideString.length(), bf, bf_size-2, "?", &untranslated);
+        bf[wideString.length()-1] = 0;
+      }
+      else {
+        bf[0] = 0;
+      }
+    }
+
+    firstLine = false;
     vector<char *> sp;
     split(bf, sp);
 
@@ -890,6 +999,36 @@ void csvparser::parse(const string &file, list< vector<string> > &data) {
       }
     }
   }
+
+  if (isUTF8) {
+    list< vector<string> > dataCopy;
+    for (list< vector<string> >::iterator it = data.begin(); it != data.end(); ++it) {
+      vector<string> &de = *it;
+      dataCopy.push_back(vector<string>());
+      vector<string> &out = dataCopy.back();
+      
+      wchar_t buff[buff_pre_alloc];
+      char outstr[buff_pre_alloc];
+      for (size_t k = 0; k < de.size(); k++) {
+        if (de[k].empty()) {
+          out.push_back("");
+          continue;
+        }
+        int len = de[k].size();
+        len = min(min(len+1, 1024), buff_pre_alloc-10);
+
+        int wlen = MultiByteToWideChar(CP_UTF8, 0, de[k].c_str(), len, buff, buff_pre_alloc);
+        buff[wlen-1] = 0;
+
+        BOOL untranslated = false;
+        WideCharToMultiByte(CP_ACP, 0, buff, wlen, outstr, buff_pre_alloc, "?", &untranslated);
+        outstr[wlen-1] = 0;
+        out.push_back(outstr);
+      }
+    }
+    data.swap(dataCopy);
+  }
+
   fin.close();
 }
 

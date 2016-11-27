@@ -72,6 +72,9 @@ string formatTimeIOF(int rt, int zeroTime);
 int convertDateYMS(const string &m, bool checkValid);
 int convertDateYMS(const string &m, SYSTEMTIME &st, bool checkValid);
 
+// Convert a "general" time string to a MeOS compatible time string
+void processGeneralTime(const string &generalTime, string &meosTime, string &meosDate);
+
 // Format number date 20160421 -> 2016-04-21 (if iso) or according to a custom format otherwise
 string formatDate(int m, bool useIsoFormat);
 

@@ -292,9 +292,9 @@ int APIENTRY WinMain(HINSTANCE hInstance,
       catch (std::exception &ex) {
         string errLoc = "Kunde inte ladda X\n\n(Y)#" + string(listpath) + "#" + lang.tl(ex.what());
         if (err.empty())
-          err = errLoc;
+          err = lang.tl(errLoc);
         else
-          err += "\n" + errLoc;
+          err += "\n" + lang.tl(errLoc);
       }
     }
     if (!err.empty())

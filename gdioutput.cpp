@@ -1641,15 +1641,36 @@ bool gdioutput::getSelectedItem(ListBoxInfo &lbi) {
   return true;
 }
 
+int gdioutput::getItemDataByName(const char *id, const char *name) const{
+  list<ListBoxInfo>::const_iterator it;
+  for(it = LBI.begin(); it != LBI.end(); ++it){
+    if (it->id==id) {
+      if (it->IsCombo) {
+        int ix = SendMessage(it->hWnd, CB_FINDSTRING, -1, LPARAM(name));
+        if (ix >= 0) {
+          return SendMessage(it->hWnd, CB_GETITEMDATA, ix, 0);
+        }
+        return -1;
+      }
+      else {
+        int ix = SendMessage(it->hWnd, LB_FINDSTRING, -1, LPARAM(name));
+        if (ix >= 0) {
+          return SendMessage(it->hWnd, LB_GETITEMDATA, ix, 0);
+        }
+        return -1;
+      }
+    }
+  }
+  return -1;
+}
+
 bool gdioutput::selectItemByData(const char *id, int data)
 {
   list<ListBoxInfo>::iterator it;
   for(it=LBI.begin(); it != LBI.end(); ++it){
     if (it->id==id) {
       if (it->IsCombo) {
-        int m=0;
-        int ret=0;
-
+        
         if (data==-1) {
           SendMessage(it->hWnd, CB_SETCURSEL, -1, 0);
           it->data = 0;
@@ -1658,28 +1679,27 @@ bool gdioutput::selectItemByData(const char *id, int data)
           it->originalIdx = -1;
           return true;
         }
-        else while (ret!=CB_ERR && m < 100000) {
-          ret = SendMessage(it->hWnd, CB_GETITEMDATA, m, 0);
-
-          if (ret==data) {
-            SendMessage(it->hWnd, CB_SETCURSEL, m, 0);
-            it->data = data;
-            it->originalIdx = data;
-            char bf[1024];
-            if (SendMessage(it->hWnd, CB_GETLBTEXT, m, LPARAM(bf))!=CB_ERR) {
-              it->text = bf;
-              it->original = bf;
+        else {
+          int count = SendMessage(it->hWnd, CB_GETCOUNT, 0, 0);
+          
+          for (int m = 0; m < count; m++) {
+            int ret = SendMessage(it->hWnd, CB_GETITEMDATA, m, 0);
+            if (ret == data) {
+              SendMessage(it->hWnd, CB_SETCURSEL, m, 0);
+              it->data = data;
+              it->originalIdx = data;
+              char bf[1024];
+              if (SendMessage(it->hWnd, CB_GETLBTEXT, m, LPARAM(bf))!=CB_ERR) {
+                it->text = bf;
+                it->original = bf;
+              }
+              return true;
             }
-            return true;
           }
-          else m++;
         }
         return false;
       }
       else {
-        int m=0;
-        int ret=0;
-
         if (data==-1) {
           SendMessage(it->hWnd, LB_SETCURSEL, -1, 0);
           it->data=0;
@@ -1688,21 +1708,23 @@ bool gdioutput::selectItemByData(const char *id, int data)
           it->originalIdx = -1;
           return true;
         }
-        else while (ret!=LB_ERR && m < 100000) {
-          ret=SendMessage(it->hWnd, LB_GETITEMDATA, m, 0);
+        else {
+          int count = SendMessage(it->hWnd, LB_GETCOUNT, 0, 0);
+          for (int m = 0; m < count; m++) {
+            int ret = SendMessage(it->hWnd, LB_GETITEMDATA, m, 0);
 
-          if (ret==data) {
-            SendMessage(it->hWnd, LB_SETCURSEL, m, 0);
-            it->data = data;
-            it->originalIdx = data;
-            char bf[1024];
-            if (SendMessage(it->hWnd, LB_GETTEXT, m, LPARAM(bf))!=LB_ERR) {
-              it->text = bf;
-              it->original = bf;
+            if (ret == data) {
+              SendMessage(it->hWnd, LB_SETCURSEL, m, 0);
+              it->data = data;
+              it->originalIdx = data;
+              char bf[1024];
+              if (SendMessage(it->hWnd, LB_GETTEXT, m, LPARAM(bf)) != LB_ERR) {
+                it->text = bf;
+                it->original = bf;
+              }
+              return true;
             }
-            return true;
           }
-          else m++;
         }
         return false;
       }
@@ -1711,7 +1733,7 @@ bool gdioutput::selectItemByData(const char *id, int data)
   return false;
 }
 
-void gdioutput::autoGrow(const char *id) {
+bool gdioutput::autoGrow(const char *id) {
   list<ListBoxInfo>::iterator it;
   int size = 0;
   TextInfo TI;
@@ -1726,10 +1748,8 @@ void gdioutput::autoGrow(const char *id) {
   for(it=LBI.begin(); it != LBI.end(); ++it){
     if (it->id==id) {
       if (it->IsCombo) {
-        int m=0;
-        int ret=0;
-        while(ret!=CB_ERR) {
-          ret = SendMessage(it->hWnd, CB_GETITEMDATA, m, 0);
+        int count = SendMessage(it->hWnd, CB_GETCOUNT, 0, 0);
+        for (int m = 0; m < count; m++) {
           char bf[1024];
           if (SendMessage(it->hWnd, CB_GETLBTEXT, m, LPARAM(bf))!=CB_ERR) {
             TI.text = bf;
@@ -1738,40 +1758,56 @@ void gdioutput::autoGrow(const char *id) {
           }
           m++;
         }
+        
+        ReleaseDC(hWndTarget, hDC);
 
         size += scaleLength(20);
         if (size > it->width) {
           it->width = size;
           SetWindowPos(it->hWnd, 0, 0, 0, (int)it->width, (int)it->height, SWP_NOZORDER|SWP_NOCOPYBITS|SWP_NOMOVE);
           updatePos(it->xp, it->yp, (int)it->width + int(scale*5), (int)it->height);
+          return true;
         }
-
+        return false;
       }
       else {
-        int m=0;
-        int ret=0;
-        while (ret!=LB_ERR) {
-          ret=SendMessage(it->hWnd, LB_GETITEMDATA, m, 0);
+        int count = SendMessage(it->hWnd, LB_GETCOUNT, 0, 0);
+        for (int m = 0; m < count; m++) {
           char bf[1024];
-          if (SendMessage(it->hWnd, LB_GETTEXT, m, LPARAM(bf))!=LB_ERR) {
-            TI.text = bf;
+          int len = SendMessage(it->hWnd, LB_GETTEXT, m, LPARAM(bf));
+          if (len!=LB_ERR) {
+            if (it->lastTabStop == 0)
+              TI.text = bf;
+            else {
+              int pos = len;
+              while(pos > 0) {
+                if (bf[pos-1] == '\t') {
+                  break;
+                }
+                pos--;
+              }
+              TI.text = &bf[pos];
+            }
             calcStringSize(TI, hDC);
-            size = max<int>(size, TI.textRect.right - TI.textRect.left);
+            size = max<int>(size, TI.realWidth + it->lastTabStop);
           }
-          m++;
         }
-
+        
+        ReleaseDC(hWndTarget, hDC);
         size += scaleLength(20);
         if (size > it->width) {
           it->width = size;
           SetWindowPos(it->hWnd, 0, 0, 0, (int)it->width, (int)it->height, SWP_NOZORDER|SWP_NOCOPYBITS|SWP_NOMOVE);
           updatePos(it->xp, it->yp, (int)it->width+int(scale*5), (int)it->height);
+          return true;
         }
+        return false;
       }
     }
   }
 
   ReleaseDC(hWndTarget, hDC);
+  return false;
 }
 
 
@@ -2782,7 +2818,7 @@ BaseInfo &gdioutput::getBaseInfo(const char *id) const {
 
   for(list<ListBoxInfo>::const_iterator it=LBI.begin();
                                   it != LBI.end(); ++it){
-    if (it->id==id && it->IsCombo){
+    if (it->id==id){
       return const_cast<ListBoxInfo &>(*it);
     }
   }
@@ -3216,14 +3252,22 @@ void gdioutput::setTabStops(const string &Name, int t1, int t2)
   int baseunitX=LOWORD(bu);
   array[0]=(t1 * 4) / baseunitX ;
   array[1]=(t2 * 4) / baseunitX ;
-
-  if (t2>0) n=2;
+  int lastTabStop = 0;
+  if (t2>0) {
+    n=2;
+    lastTabStop = t2;
+  }
+  else {
+    lastTabStop = t1;
+  }
 
   list<ListBoxInfo>::iterator it;
   for(it=LBI.begin(); it != LBI.end(); ++it){
     if (it->id==Name){
-      if (!it->IsCombo)
+      if (!it->IsCombo) {
         SendMessage(it->hWnd, LB_SETTABSTOPS, n, LPARAM(array));
+        it->lastTabStop = lastTabStop;
+      }
       return;
     }
   }
@@ -4698,6 +4742,15 @@ DWORD gdioutput::makeEvent(const string &id, const string &origin,
   return -1;
 }
 
+
+RectangleInfo &RectangleInfo::changeDimension(gdioutput &gdi, int dx, int dy) {
+  rc.right += dx;
+  rc.bottom += dy;
+  int ex = gdi.scaleLength(5);
+  gdi.updatePos(rc.left, rc.top, rc.right-rc.left+ex, rc.bottom-rc.top+ex);
+  return *this;
+}
+
 RectangleInfo &gdioutput::addRectangle(RECT &rc, GDICOLOR color, bool drawBorder, bool addFirst) {
   RectangleInfo ri;
 
@@ -4730,7 +4783,14 @@ RectangleInfo &gdioutput::addRectangle(RECT &rc, GDICOLOR color, bool drawBorder
   }
 }
 
-
+RectangleInfo &gdioutput::getRectangle(const char *id) {
+  for (list<RectangleInfo>::iterator it = Rectangles.begin(); it != Rectangles.end(); ++it) {
+    return *it;
+  }
+  string err = string("Internal Error, identifier not found: X#") + id;
+  throw std::exception(err.c_str());
+}
+  
 void gdioutput::setOffset(int x, int y, bool update)
 {
   int h,w;
@@ -5391,10 +5451,16 @@ void gdioutput::processToolbarMessage(const string &id, void *data) {
   if (hasCommandLock())
     return;
   string msg;
+  string cmd;
+  if (getRecorder().recording()) { 
+    Table *tbl = (Table *)data;
+    cmd = "tableCmd(\"" + id + "\"); //" + tbl->getTableName();
+  }
   try {
     ButtonInfo bi;
     bi.id = id;
     tableCB(bi, (Table *)data);
+    getRecorder().record(cmd);
   }
   catch(std::exception &ex) {
     msg = ex.what();
@@ -6259,12 +6325,15 @@ void gdioutput::initRecorder(Recorder *rec) {
 }
 
 string gdioutput::dbPress(const string &id, int extra) {
+  bool notEnabled = false;
   for (list<ButtonInfo>::iterator it=BI.begin(); it != BI.end(); ++it) {
     if (id==it->id && (extra == -65536 || extra == it->getExtraInt())) {
       
-      if (!IsWindowEnabled(it->hWnd))
-        throw meosException("Button " + id + " is not active.");
-      
+      if (!IsWindowEnabled(it->hWnd)) {
+        notEnabled = true;
+        continue;
+      }
+        
       if (it->isCheckbox) {
         check(id, !isChecked(id));
       }
@@ -6279,6 +6348,9 @@ string gdioutput::dbPress(const string &id, int extra) {
       return val;
     }
   }
+  if (notEnabled)
+    throw meosException("Button " + id + " is not active.");
+      
   throw meosException("Unknown command " + id + ".");
 }
 
@@ -6319,10 +6391,12 @@ string gdioutput::dbSelect(const string &id, int data) {
         if (res != it->data2Index.end())
           SendMessage(it->hWnd, LB_SETSEL, true, res->second);
         else
-          throw meosException("List " + id + " does not contain value.");
+          throw meosException("List " + id + " does not contain value " + itos(data) + ".");
       }
-      else
-        selectItemByData(id, data);
+      else {
+        if (!selectItemByData(id, data))
+          throw meosException("List " + id + " does not contain value " + itos(data) + ".");
+      }
       UpdateWindow(it->hWnd);
       string res = it->text;
       internalSelect(*it);
@@ -6442,11 +6516,17 @@ void gdioutput::clearDialogAnswers(bool checkEmpty) {
   }
 }
 
-int gdioutput::dbGetStringCount(const string &str) const {
+int gdioutput::dbGetStringCount(const string &str, bool subString) const {
   int count = 0;
   for (list<TextInfo>::const_iterator it = TL.begin(); it != TL.end(); ++it) {
-    if (it->text == str)
-      count++;
+    if (subString == false) {
+      if (it->text == str)
+        count++;
+    }
+    else {
+      if (it->text.find(str) != string::npos)
+        count++;
+    }
   }
   return count;
 }

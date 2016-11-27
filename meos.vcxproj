@@ -326,6 +326,7 @@
     <ClCompile Include="recorder.cpp" />
     <ClCompile Include="RunnerDB.cpp" />
     <ClCompile Include="socket.cpp" />
+    <ClCompile Include="speakermonitor.cpp" />
     <ClCompile Include="SportIdent.cpp">
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -401,6 +402,7 @@
     <ClInclude Include="Printer.h" />
     <ClInclude Include="recorder.h" />
     <ClInclude Include="socket.h" />
+    <ClInclude Include="speakermonitor.h" />
     <ClInclude Include="testmeos.h" />
     <ClInclude Include="toolbar.h" />
     <ClInclude Include="csvparser.h" />

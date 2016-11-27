@@ -33,6 +33,7 @@
 #include "TabSI.h"
 #include "SportIdent.h"
 #include "metalist.h"
+#include "Table.h"
 
 void registerTests(TestMeOS &tm);
 
@@ -117,116 +118,6 @@ void TestMeOS::publish(gdioutput &gdi) const {
 }
 
 void TestMeOS::run() const {
-/*  showTab(TClassTab); //Klasser
-  press("Add"); //New Class
-  press("MultiCourse"); //Several Courses / Relay...
-  press("SetNStage"); //Confirm
-  input("StartData0", "9");
-  press("Save"); //Save
-  showTab(TListTab); //Listor
-  showTab(TTeamTab); //Lag(flera)
-  press("Add"); //New Team
-  input("R0", "A");
-  input("R1", "B");
-  input("R2", "C");
-  input("SI0", "1001");
-  input("SI1", "1002");
-  input("SI2", "1001");
-  press("Save"); //Save
-  showTab(TRunnerTab); //Deltagare
-  select("Runners", 1);
-  select("Runners", 2);
-  select("Runners", 3);
-  select("Runners", 2);
-  select("Runners", 1);
-  select("Runners", 2);
-  select("Runners", 3);
-  select("Runners", 2);
-  select("Runners", 1);
-  showTab(TTeamTab); //Lag(flera)
-  press("Add"); //New Team
-  input("R0", "Ap");
-  input("R1", "Bb");
-  input("R2", "Cp");
-  input("SI0", "1001");
-  input("SI1", "1111");
-  input("SI2", "1110");
-  press("Save"); //Save
-  showTab(TRunnerTab); //Deltagare
-  select("Runners", 4);
-  select("Runners", 3);
-  select("Runners", 6);
-  select("Runners", 1);
-  select("Status", 1);
-  input("Finish", "9:30");
-  press("Save"); //Save
-  select("Runners", 4);
-  select("Runners", 6);
-  select("Runners", 3);
-  select("Runners", 2);
-  input("Finish", "10:00");
-  select("Status", 1);
-  press("Save"); //Save
-  select("Runners", 3);
-  input("Finish", "10:30");
-  select("Status", 1);
-  press("Save"); //Save
-  select("Runners", 1);
-  select("Runners", 4);
-  showTab(TCmpTab); //Tävling
-  showTab(TRunnerTab); //Deltagare
-  select("Runners", 1);
-  select("Runners", 4);
-  select("Runners", 1);
-  showTab(TSITab); //SportIdent
-  input("SI", "1001");
-  press("Save"); //Card
-  showTab(TRunnerTab); //Deltagare
-  select("Runners", 4);
-  select("Runners", 2);
-  select("Runners", 4);
-  select("Runners", 2);
-  select("Runners", 4);
-  input("CardNo", "10011");
-  select("Runners", 3);
-  select("Runners", 2);
-  showTab(TSITab); //SportIdent
-  input("SI", "1002");
-  press("Save"); //Card
-  showTab(TRunnerTab); //Deltagare
-  select("Runners", 3);
-  showTab(TSITab); //SportIdent
-  input("SI", "1001");
-  press("Save"); //Card
-  showTab(TRunnerTab); //Deltagare
-  select("Runners", 5);
-  select("Runners", 2);
-  select("Runners", 4);
-  select("Runners", 1);
-  select("Runners", 4);
-  select("Runners", 2);
-  select("Runners", 5);
-  select("Runners", 3);
-  select("Runners", 6);
-  select("Runners", 3);
-  select("Runners", 5);
-  select("Runners", 2);
-  select("Runners", 4);
-  select("Runners", 1);
-  select("Runners", 4);
-  select("Runners", 2);
-  select("Runners", 5);
-  select("Runners", 3);
-  select("Runners", 6);
-  select("Runners", 3);
-  select("Runners", 5);
-  select("Runners", 2);
-  select("Runners", 4);
-  input("CardNo", "1001");
-  press("Save"); //Save
-  select("Runners", 2);
-  select("Runners", 4);
-  showTab(TCmpTab); //Tävling*/
 }
 
 void TestMeOS::runProtected(bool protect) const {
@@ -238,6 +129,8 @@ void TestMeOS::runProtected(bool protect) const {
   oe_main->clear();
   gdi_main->isTestMode = true;
   showTab(TCmpTab);
+  string pmOrig = oe_main->getPropertyString("PayModes", "");
+  oe_main->setProperty("PayModes", "");
   try {
     status = RUNNING;
     run();
@@ -258,6 +151,7 @@ void TestMeOS::runProtected(bool protect) const {
     gdi_main->isTestMode = false;
     subWindows.clear();
     message = ex.message;
+    oe_main->setProperty("PayModes", pmOrig);
     if (!protect)
       throw meosException(message);
   }
@@ -266,6 +160,7 @@ void TestMeOS::runProtected(bool protect) const {
     gdi_main->clearDialogAnswers(false);
     gdi_main->isTestMode = false;
     subWindows.clear();
+    oe_main->setProperty("PayModes", pmOrig);
     message = ex.what();
     if (!protect)
       throw;
@@ -275,11 +170,13 @@ void TestMeOS::runProtected(bool protect) const {
     gdi_main->clearDialogAnswers(false);
     gdi_main->isTestMode = false;
     subWindows.clear();
+    oe_main->setProperty("PayModes", pmOrig);
     message = "Unknown Exception";
     cleanup();
     if (!protect)
       throw;
   }
+  oe_main->setProperty("PayModes", pmOrig);
 
   for (size_t k = 0; k < tmpFiles.size(); k++)
     removeTempFile(tmpFiles[k]);
@@ -350,6 +247,15 @@ void TestMeOS::press(const char *btn, int extra) const {
 void TestMeOS::press(const char *btn, const char *extra) const {
   gdi_main->dbPress(btn, extra);
   mainMessageLoop(0, 50);
+}
+
+string TestMeOS::selectString(const char *id, const char *data) const {
+  int d = gdi_main->getItemDataByName(id, data);
+  if (d == -1)
+      throw meosException(string(data) + string(" not found in ") + id);
+  string res = gdi_main->dbSelect(id, d);
+  mainMessageLoop(0, 50);
+  return res; 
 }
 
 string TestMeOS::select(const char *id, size_t data) const {
@@ -425,12 +331,18 @@ void TestMeOS::assertEquals(const char *message,
 }
 
 void TestMeOS::checkString(const char *str, int count) const {
-  int c = gdi_main->dbGetStringCount(str);
+  int c = gdi_main->dbGetStringCount(str, false);
   assertEquals("String " + string(str) + " not found", itos(count), itos(c));
 }
 
+void TestMeOS::checkSubString(const char *str, int count) const {
+  int c = gdi_main->dbGetStringCount(str, true);
+  assertEquals("String " + string(str) + " not found", itos(count), itos(c));
+}
+
+
 void TestMeOS::checkStringRes(const char *str, int count) const {
-  int c = gdi_main->dbGetStringCount(lang.tl(str));
+  int c = gdi_main->dbGetStringCount(lang.tl(str), false);
   assertEquals("String " + string(str) + " not found", itos(count), itos(c));
 }
 
@@ -455,11 +367,11 @@ void TestMeOS::cleanup() const {
 }
 
 int TestMeOS::getResultModuleIndex(const char *tag) const {
-  vector< pair<string, string> > mol;
+  vector< pair<int, pair<string, string> > > mol;
   oe_main->getGeneralResults(false, mol, true);
   for (size_t k = 0; k < mol.size(); k++) {
-    if (mol[k].first == tag) {
-      return k + 100;
+    if (mol[k].second.first == tag) {
+      return mol[k].first;
     }
   }
   throw meosException(string("Result module not found: ") + tag);
@@ -469,7 +381,7 @@ int TestMeOS::getListIndex(const char *name) const {
   vector< pair<string, size_t> > lst;
   oe_main->getListContainer().getLists(lst, false, false, false);
   for (size_t k = 0; k < lst.size(); k++) {
-    if (lst[k].first == name)
+    if (lst[k].first == lang.tl(name))
       return lst[k].second;
   }
   throw meosException(string("List not found: ") + name);
@@ -512,4 +424,15 @@ string TestMeOS::getTempFile() const {
   string fn = ::getTempFile();
   tmpFiles.push_back(fn);
   return fn;
+}
+
+void TestMeOS::tableCmd(const char *id) const {
+  gdi_main->processToolbarMessage(id, &gdi_main->getTable());
+  mainMessageLoop(0, 50);
+}
+
+void TestMeOS::setTableText(int editRow, int editCol, const string &text) const {
+  Table &t = gdi_main->getTable();
+  t.setTableText(*gdi_main, editRow, editCol, text);
+  mainMessageLoop(0, 50);
 }

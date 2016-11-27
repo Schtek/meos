@@ -409,6 +409,8 @@ bool gdioutput::writeTableHTML(ostream &fout,
     if (h == minHeight)
       numMin++;
   }
+  if (numMin == 0)
+    numMin = 1;
 
   int hdrLimit = (rows.size() / numMin) <= 4 ?  int(minHeight * 1.2) : int(minHeight * 1.5);
   for (size_t gCount = 1; gCount + 1 < rows.size(); gCount++) {

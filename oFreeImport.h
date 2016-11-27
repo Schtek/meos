@@ -136,7 +136,7 @@ struct oEntryBlock {
   bool acceptMoreClubs(int expectedNumRunners) const;
 
   bool expectMoreNames(int expectedNumRunners) const;
-
+  bool needCard() const;
   bool hasClub() const {return !eClub.empty();}
   /** Return true if class explicitly set. May have a ruling class anyway*/
   bool hasClass() const {return isClassSet;}

@@ -4613,34 +4613,50 @@ pRunner oRunner::getMatchedRunner(const SICard &sic) const {
   if (Class->getLegType(tLeg) != LTExtra)
     return pRunner(this);
 
-  vector<pRunner> multi = tParentRunner ? tParentRunner->multiRunner : multiRunner;
-  multi.push_back( tParentRunner ? tParentRunner : pRunner(this));
+  const vector<pRunner> &multiV = tParentRunner ? tParentRunner->multiRunner : multiRunner;
+  
+  vector<pRunner> multiOrdered;
+  multiOrdered.push_back( tParentRunner ? tParentRunner : pRunner(this));
+  multiOrdered.insert(multiOrdered.end(), multiV.begin(), multiV.end());
 
   int Distance=-1000;
   pRunner r = 0; //Best runner
-
-  for (size_t k = 0; k<multi.size(); k++) {
-    if (!multi[k] || multi[k]->Card || multi[k]->getStatus() != StatusUnknown)
+  
+  for (size_t k = 0; k<multiOrdered.size(); k++) {
+    if (!multiOrdered[k] || multiOrdered[k]->Card || multiOrdered[k]->getStatus() != StatusUnknown)
       continue;
 
-    if (Class->getLegType(multi[k]->tLeg) != LTExtra)
+    if (Class->getLegType(multiOrdered[k]->tLeg) != LTExtra)
       return pRunner(this);
 
-    pCourse pc = multi[k]->getCourse(false);
-    if (pc) {
+    vector<pCourse> crs;
+
+    if (Class->hasCoursePool()) {
+      Class->getCourses(multiOrdered[k]->tLeg, crs);
+    }
+    else {
+      pCourse pc = multiOrdered[k]->getCourse(false);
+      crs.push_back(pc);
+    }
+
+    for (size_t j = 0; j < crs.size(); j++) { 
+      pCourse pc = crs[j];
+      if (!pc)
+        continue;
+
       int d = pc->distance(sic);
 
       if (d>=0) {
         if (Distance<0) Distance=1000;
         if (d<Distance) {
           Distance=d;
-          r = multi[k];
+          r = multiOrdered[k];
         }
       }
       else {
         if (Distance<0 && d>Distance) {
           Distance=d;
-          r = multi[k];
+          r = multiOrdered[k];
         }
       }
     }
@@ -4669,8 +4685,9 @@ int oRunner::getTotalRunningTime(int time) const {
       return tInTeam->getLegRunningTime(tLeg, true); // Use the official running time in this case (which works with parallel legs)
     }
 
-    int baseleg = tLeg-1;
-    while (baseleg>0 && (Class->legInfo[baseleg+1].isParallel())) {
+    int baseleg = tLeg;
+    while (baseleg>0 && (Class->legInfo[baseleg].isParallel() ||
+                         Class->legInfo[baseleg].isOptional())) {
       baseleg--;
     }
 
@@ -4690,7 +4707,7 @@ int oRunner::getTotalRunningTime(int time) const {
 }
 
   // Get the complete name, including team and club.
-string oRunner::getCompleteIdentification() const {
+string oRunner::getCompleteIdentification(bool includeExtra) const {
   if (tInTeam == 0 || !Class || tInTeam->getName() == Name) {
     if (Club)
       return Name + " (" + Club->name + ")";
@@ -4703,7 +4720,7 @@ string oRunner::getCompleteIdentification() const {
     // Get many names for paralell legs
     int firstLeg = tLeg;
     LegTypes lt=clsToUse->getLegType(firstLeg--);
-    while(firstLeg>=0 && (lt==LTIgnore || lt==LTParallel || lt==LTParallelOptional || lt==LTExtra) )
+    while(firstLeg>=0 && (lt==LTIgnore || lt==LTParallel || lt==LTParallelOptional || (lt==LTExtra && includeExtra)) )
       lt=clsToUse->getLegType(firstLeg--);
 
     for (size_t k = firstLeg+1; k < clsToUse->legInfo.size(); k++) {
@@ -4715,7 +4732,7 @@ string oRunner::getCompleteIdentification() const {
           names += "/" + r->Name;
       }
       lt = clsToUse->getLegType(k + 1);
-      if ( !(lt==LTIgnore || lt==LTParallel || lt == LTParallelOptional || lt==LTExtra))
+      if ( !(lt==LTIgnore || lt==LTParallel || lt == LTParallelOptional || (lt==LTExtra && includeExtra)))
         break;
     }
 
@@ -5340,4 +5357,12 @@ bool oRunner::canShareCard(const pRunner other, int newCardNo) const {
   tCls->splitLegNumberParallel(tLeg, ln1, ord);
   tCls->splitLegNumberParallel(other->tLeg, ln2, ord);
   return ln1 != ln2;
+}
+
+int oAbstractRunner::getPaymentMode() const {
+  return getDCI().getInt("PayMode");
+}
+
+void oAbstractRunner::setPaymentMode(int mode) {
+  getDI().setInt("PayMode", mode);
 }

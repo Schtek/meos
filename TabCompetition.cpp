@@ -110,7 +110,7 @@ bool TabCompetition::save(gdioutput &gdi, bool write)
   string oldDate = oe->getDate();
   
   if ((newZT != oldZT || 
-      longTimes != oe->useLongTimes() || 
+      longTimes != oldLT || 
       (longTimes && date != oldDate)) && oe->classHasResults(0)) {
     if (!gdi.ask("warn:changedtimezero")) {
       gdi.setText("ZeroTime", oe->getZeroTime());
@@ -593,198 +593,25 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       loadPage(gdi);
     }
     else if (bi.id=="Settings") {
-      gdi.clearPage(false);
-
-      gdi.addString("", boldLarge, "Tävlingsinställningar");
-      gdi.dropLine(0.5);
-      vector<string> fields;
-      gdi.pushY();
-      gdi.addString("", 1, "Adress och kontakt");
-      fields.push_back("Organizer");
-      fields.push_back("CareOf");
-      fields.push_back("Street");
-      fields.push_back("Address");
-      fields.push_back("EMail");
-      fields.push_back("Homepage");
-
-      oe->getDI().buildDataFields(gdi, fields);
-
-      gdi.dropLine();
-      gdi.addString("", 1, "Tidszon");
-
-      gdi.dropLine(0.3);
-      gdi.addCheckbox("UTC", "Exportera tider i UTC", 0,
-                      oe->getDCI().getInt("UTC") == 1);
-
-      gdi.newColumn();
-      gdi.popY();
-
-      gdi.addString("", 1, "Avgifter");
-      fields.clear();
-      gdi.fillRight();
-      gdi.pushX();
-      fields.push_back("CardFee");
-      fields.push_back("EliteFee");
-      fields.push_back("EntryFee");
-      fields.push_back("YouthFee");
-
-      oe->getDI().buildDataFields(gdi, fields);
-
-      gdi.popX();
-      gdi.dropLine(3);
-
-      fields.clear();
-      fields.push_back("OrdinaryEntry");
-      fields.push_back("LateEntryFactor");
-
-      oe->getDI().buildDataFields(gdi, fields);
-
-      gdi.fillDown();
-      gdi.popX();
-      gdi.dropLine(3);
-
-      gdi.addString("", 1, "Åldersgränser, reducerad anmälningsavgift");
-      fields.clear();
-      fields.push_back("YouthAge");
-      fields.push_back("SeniorAge");
-      gdi.fillRight();
-      oe->getDI().buildDataFields(gdi, fields);
-
-      gdi.fillDown();
-      gdi.popX();
-      gdi.dropLine(3);
-
-
-      gdi.addString("", 1, "Valuta");
-      fields.clear();
-      fields.push_back("CurrencySymbol");
-      fields.push_back("CurrencyCode");
-
-      gdi.fillRight();
-      oe->getDI().buildDataFields(gdi, fields);
-
-      gdi.dropLine();
-      gdi.addCheckbox("PreSymbol", "Valutasymbol före", 0,
-                      oe->getDCI().getInt("CurrencyPreSymbol") == 1);
-
-      gdi.popX();
-      gdi.dropLine(3);
-      bool useFrac = oe->getDCI().getInt("CurrencyFactor") == 100;
-      gdi.addCheckbox("UseFraction", "Tillåt decimaler", CompetitionCB,
-                       useFrac, "Tillåt valutauttryck med decimaler");
-
-      fields.clear();
-      gdi.dropLine(-1);
-      fields.push_back("CurrencySeparator");
-      oe->getDI().buildDataFields(gdi, fields);
-
-      gdi.setInputStatus("CurrencySeparator_odc", useFrac);
-
-      gdi.fillDown();
-      gdi.popX();
-      gdi.dropLine(3);
-
-      gdi.addString("", 1, "Betalningsinformation");
-      fields.clear();
-      fields.push_back("Account");
-      fields.push_back("PaymentDue");
-
-      oe->getDI().buildDataFields(gdi, fields);
-
-      gdi.fillDown();
-      gdi.addString("", 1, "Tävlingsregler");
-      fields.clear();
-      gdi.fillRight();
-      gdi.pushX();
-      fields.push_back("MaxTime");
-      oe->getDI().buildDataFields(gdi, fields);
-      oe->getDI().fillDataFields(gdi);
-
-      gdi.popX();
-      gdi.dropLine(3);
-
-      gdi.fillRight();
-      gdi.addButton("SaveSettings", "Spara", CompetitionCB).setDefault();
-      gdi.addButton("Cancel", "Avbryt", CompetitionCB).setCancel();
-      gdi.dropLine(2);
-      gdi.setOnClearCb(CompetitionCB);
-      gdi.refresh();
+      loadSettings(gdi);
     }
     else if (bi.id == "UseFraction") {
       gdi.setInputStatus("CurrencySeparator_odc", gdi.isChecked(bi.id));
     }
+    else if (bi.id == "AddPayMode") {
+      saveSettings(gdi);
+      vector< pair<string, size_t> > modes;
+      oe->getPayModes(modes);
+      oe->setPayMode(modes.size(), lang.tl("Betalsätt"));
+      loadSettings(gdi);
+    }
+    else if (bi.id == "RemovePayMode") {
+      saveSettings(gdi);
+      oe->setPayMode(bi.getExtraInt(), "");
+      loadSettings(gdi);
+    }
     else if (bi.id=="SaveSettings") {
-      vector<string> fields;
-      vector<int> fees(4);
-      fields.push_back("CardFee");
-      fields.push_back("EliteFee");
-      fields.push_back("EntryFee");
-      fields.push_back("YouthFee");
-
-      for (int k = 0; k<4; k++)
-        fees[k] = oe->getDCI().getInt(fields[k]);
-      string factor = oe->getDCI().getString("LateEntryFactor");
-      oe->getDI().saveDataFields(gdi);
-
-      bool changedFee = false;
-      bool changedCardFee = false;
-
-      for (int k = 0; k<4; k++) {
-        if (fees[k] != oe->getDCI().getInt(fields[k])) {
-          if (k > 0)
-            changedFee = true;
-          else {
-            changedCardFee = true;
-            if (oe->getDCI().getInt(fields[k]) == 0)
-              oe->getDI().setInt(fields[k].c_str(), -1); // Disallow zero card fee. -1 means no fee.
-          }
-        }
-      }
-      if (factor != oe->getDCI().getString("LateEntryFactor"))
-        changedFee = true;
-
-
-      oe->getDI().setInt("UTC", gdi.isChecked("UTC") ? 1 : 0);
-
-      oe->getDI().setInt("CurrencyFactor", gdi.isChecked("UseFraction") ? 100 : 1);
-      oe->getDI().setInt("CurrencyPreSymbol", gdi.isChecked("PreSymbol") ? 1 : 0);
-      oe->setCurrency(-1, "", "", false);
-
-      // Read from model
-      if (oe->isChanged()) {
-        oe->setProperty("Organizer", oe->getDCI().getString("Organizer"));
-        oe->setProperty("Street", oe->getDCI().getString("Street"));
-        oe->setProperty("Address", oe->getDCI().getString("Address"));
-        oe->setProperty("EMail", oe->getDCI().getString("EMail"));
-        oe->setProperty("Homepage", oe->getDCI().getString("Homepage"));
-
-        oe->setProperty("CardFee", oe->getDCI().getInt("CardFee"));
-        oe->setProperty("EliteFee", oe->getDCI().getInt("EliteFee"));
-        oe->setProperty("EntryFee", oe->getDCI().getInt("EntryFee"));
-        oe->setProperty("YouthFee", oe->getDCI().getInt("YouthFee"));
-
-        oe->setProperty("YouthAge", oe->getDCI().getInt("YouthAge"));
-        oe->setProperty("SeniorAge", oe->getDCI().getInt("SeniorAge"));
-
-        oe->setProperty("Account", oe->getDCI().getString("Account"));
-        oe->setProperty("LateEntryFactor", oe->getDCI().getString("LateEntryFactor"));
-
-        oe->setProperty("CurrencySymbol", oe->getDCI().getString("CurrencySymbol"));
-        oe->setProperty("CurrencyFactor", oe->getDCI().getInt("CurrencyFactor"));
-        oe->setProperty("CurrencyPreSymbol", oe->getDCI().getInt("CurrencyPreSymbol"));
-        oe->setProperty("CurrencySeparator", oe->getDCI().getString("CurrencySeparator"));
-      }
-      oe->synchronize(true);
-      set<int> dummy;
-      if (changedFee && oe->getNumClasses() > 0) {
-        bool updateFee = gdi.ask("ask:changedcmpfee");
-
-        if (updateFee)
-          oe->applyEventFees(true, true, changedCardFee, dummy);
-      }
-      else if (changedCardFee)
-        oe->applyEventFees(false, false, true, dummy);
-
+      saveSettings(gdi);
       loadPage(gdi);
     }
     else if (bi.id == "Exit") {
@@ -1308,7 +1135,7 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
 
       string startlist = getTempFile();
       bool eventorUTC = oe->getPropertyInt("UseEventorUTC", 0) != 0;
-      oe->exportIOFStartlist(oEvent::IOF30, startlist.c_str(), eventorUTC, set<int>(), false);
+      oe->exportIOFStartlist(oEvent::IOF30, startlist.c_str(), eventorUTC, set<int>(), false, false);
       vector<string> fileList;
       fileList.push_back(startlist);
 
@@ -1388,7 +1215,8 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       string resultlist = getTempFile();
       set<int> classes;
       bool eventorUTC = oe->getPropertyInt("UseEventorUTC", 0) != 0;
-      oe->exportIOFSplits(oEvent::IOF30, resultlist.c_str(), false, eventorUTC, classes, -1, false, true);
+      oe->exportIOFSplits(oEvent::IOF30, resultlist.c_str(), false,
+                          eventorUTC, classes, -1, false, true, false);
       vector<string> fileList;
       fileList.push_back(resultlist);
 
@@ -1888,6 +1716,11 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
         throw meosException("Filnamn kan inte vara tomt");
 
       bool individual = !gdi.hasField("ExportTeam") || gdi.isChecked("ExportTeam");
+
+      bool includeStage = true;
+      if (gdi.hasField("IncludeRaceNumber"))
+        includeStage = gdi.isChecked("IncludeRaceNumber");
+
       gdi.getSelection("ClassNewEntries", allTransfer);
       int FilterIndex = gdi.getSelectedItem("Type").first;
 	  int cSVLanguageHeaderIndex = gdi.getSelectedItem("LanguageType").first;
@@ -1898,7 +1731,7 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       if (FilterIndex == 1 || FilterIndex == 2) {
         bool useUTC = oe->getDCI().getInt("UTC") != 0;
         oe->exportIOFStartlist(FilterIndex == 1 ? oEvent::IOF30 : oEvent::IOF20,
-                                save.c_str(), useUTC, allTransfer, individual);
+                                save.c_str(), useUTC, allTransfer, individual, includeStage);
       }
       else if (FilterIndex == 3) {
         oe->exportOECSV(save.c_str(), cSVLanguageHeaderIndex, false, useFFCOClubMapping);
@@ -1936,6 +1769,9 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
 	  bool useFFCOClubMapping = gdi.isChecked("UseFFCOClubMapping");
 
       bool unroll = gdi.isChecked("UnrollLoops"); // If not applicable, field does not exist.
+      bool includeStage = true;
+      if (gdi.hasField("IncludeRaceNumber"))
+        includeStage = gdi.isChecked("IncludeRaceNumber");
 
       gdi.setWaitCursor(true);
       if (FilterIndex == 1 || FilterIndex == 2) {
@@ -1945,7 +1781,8 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
         bool useUTC = oe->getDCI().getInt("UTC") != 0;
 
         if (!cnf.hasTeamClass()) {
-          oe->exportIOFSplits(ver, save.c_str(), true, useUTC, allTransfer, -1, false, unroll);
+          oe->exportIOFSplits(ver, save.c_str(), true, useUTC, 
+                              allTransfer, -1, false, unroll, includeStage);
         }
         else {
           ListBoxInfo leglbi;
@@ -1965,15 +1802,18 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
             int legMax = cnf.getNumLegsTotal();
             for (int leg = 0; leg<legMax; leg++) {
               file = fileBase + "_" + itos(leg+1) + fileEnd;
-              oe->exportIOFSplits(ver, file.c_str(), true, useUTC, allTransfer, leg, false, unroll);
+              oe->exportIOFSplits(ver, file.c_str(), true, useUTC, 
+                                  allTransfer, leg, false, unroll, includeStage);
             }
           }
           else if (leglbi.data == 3) {
-            oe->exportIOFSplits(ver, file.c_str(), true, useUTC, allTransfer, -1, true, unroll);
+            oe->exportIOFSplits(ver, file.c_str(), true, useUTC, allTransfer, 
+                                -1, true, unroll, includeStage);
           }
           else {
             int leg = leglbi.data == 1 ? -1 : leglbi.data - 10;
-            oe->exportIOFSplits(ver, file.c_str(), true, useUTC, allTransfer, leg, false, unroll);
+            oe->exportIOFSplits(ver, file.c_str(), true, useUTC, allTransfer, 
+                                leg, false, unroll, includeStage);
           }
         }
       }
@@ -3712,6 +3552,8 @@ void TabCompetition::selectStartlistOptions(gdioutput &gdi) {
   if (oe->hasTeam()) {
     gdi.addCheckbox("ExportTeam", "Exportera individuella lopp istället för lag", 0, false);
   }
+  if (oe->hasMultiRunner() || oe->getStageNumber() > 0)
+    gdi.addCheckbox("IncludeRaceNumber", "Inkludera information om flera lopp per löpare", 0, true);
 
   gdi.addInput("Filename", "", 48, CompetitionCB,  "Filnamn:").setExtra("DoSaveStartlist");
   gdi.fillRight();
@@ -3789,7 +3631,6 @@ void TabCompetition::selectExportSplitOptions(gdioutput &gdi) {
   oe->getClassConfigurationInfo(cnf);
 
   if (oe->hasTeam()) {
-//    gdi.addCheckbox("ExportTeam", "Exportera individuella lopp istället för lag", 0, false);
     gdi.addSelection("LegType", 300, 100, 0, "Exportval, IOF-XML");
     gdi.addItem("LegType", lang.tl("Totalresultat"), 1);
     gdi.addItem("LegType", lang.tl("Alla lopp som individuella"), 3);
@@ -3811,6 +3652,9 @@ void TabCompetition::selectExportSplitOptions(gdioutput &gdi) {
   if (hasLoops)
     gdi.addCheckbox("UnrollLoops", "Unroll split times for loop courses", 0, true);
 
+  if (oe->hasMultiRunner() || oe->getStageNumber() > 0)
+    gdi.addCheckbox("IncludeRaceNumber", "Inkludera information om flera lopp per löpare", 0, true);
+
   gdi.addInput("Filename", "", 48, CompetitionCB,  "Filnamn:").setExtra("DoSaveSplits");
   gdi.fillRight();
   gdi.dropLine();
@@ -3823,4 +3667,240 @@ void TabCompetition::selectExportSplitOptions(gdioutput &gdi) {
 }
 
 void TabCompetition::clearCompetitionData() {
+}
+
+void TabCompetition::loadSettings(gdioutput &gdi) {
+  gdi.clearPage(false);
+
+  gdi.addString("", boldLarge, "Tävlingsinställningar");
+  gdi.dropLine(0.5);
+  vector<string> fields;
+  gdi.pushY();
+  gdi.addString("", 1, "Adress och kontakt");
+  fields.push_back("Organizer");
+  fields.push_back("CareOf");
+  fields.push_back("Street");
+  fields.push_back("Address");
+  fields.push_back("EMail");
+  fields.push_back("Homepage");
+
+  oe->getDI().buildDataFields(gdi, fields);
+
+  gdi.dropLine();
+  gdi.addString("", 1, "Tidszon");
+
+  gdi.dropLine(0.3);
+  gdi.addCheckbox("UTC", "Exportera tider i UTC", 0,
+                  oe->getDCI().getInt("UTC") == 1);
+
+  gdi.newColumn();
+  gdi.popY();
+
+  gdi.addString("", 1, "Avgifter");
+  fields.clear();
+  gdi.fillRight();
+  gdi.pushX();
+  fields.push_back("CardFee");
+  fields.push_back("EliteFee");
+  fields.push_back("EntryFee");
+  fields.push_back("YouthFee");
+
+  oe->getDI().buildDataFields(gdi, fields);
+
+  gdi.popX();
+  gdi.dropLine(3);
+
+  fields.clear();
+  fields.push_back("OrdinaryEntry");
+  fields.push_back("LateEntryFactor");
+
+  oe->getDI().buildDataFields(gdi, fields);
+
+  gdi.fillDown();
+  gdi.popX();
+  gdi.dropLine(3);
+
+  gdi.addString("", 1, "Åldersgränser, reducerad anmälningsavgift");
+  fields.clear();
+  fields.push_back("YouthAge");
+  fields.push_back("SeniorAge");
+  gdi.fillRight();
+  oe->getDI().buildDataFields(gdi, fields);
+
+  gdi.fillDown();
+  gdi.popX();
+  gdi.dropLine(3);
+
+
+  gdi.addString("", 1, "Valuta");
+  fields.clear();
+  fields.push_back("CurrencySymbol");
+  fields.push_back("CurrencyCode");
+
+  gdi.fillRight();
+  oe->getDI().buildDataFields(gdi, fields);
+
+  gdi.dropLine();
+  gdi.addCheckbox("PreSymbol", "Valutasymbol före", 0,
+                  oe->getDCI().getInt("CurrencyPreSymbol") == 1);
+
+  gdi.popX();
+  gdi.dropLine(3);
+  bool useFrac = oe->getDCI().getInt("CurrencyFactor") == 100;
+  gdi.addCheckbox("UseFraction", "Tillåt decimaler", CompetitionCB,
+                    useFrac, "Tillåt valutauttryck med decimaler");
+
+  fields.clear();
+  gdi.dropLine(-1);
+  fields.push_back("CurrencySeparator");
+  oe->getDI().buildDataFields(gdi, fields);
+
+  gdi.setInputStatus("CurrencySeparator_odc", useFrac);
+
+  gdi.fillDown();
+  gdi.popX();
+  gdi.dropLine(3);
+
+  gdi.addString("", 1, "Betalningsinformation");
+  fields.clear();
+  fields.push_back("Account");
+  fields.push_back("PaymentDue");
+
+  oe->getDI().buildDataFields(gdi, fields);
+
+  gdi.fillDown();
+  gdi.addString("", 1, "Tävlingsregler");
+  fields.clear();
+  gdi.fillRight();
+  gdi.pushX();
+  fields.push_back("MaxTime");
+  oe->getDI().buildDataFields(gdi, fields);
+  oe->getDI().fillDataFields(gdi);
+
+  gdi.dropLine(3);
+  int bottom = gdi.getCY();
+
+
+  gdi.newColumn();
+  gdi.popY();
+  gdi.pushX();
+  gdi.fillDown();
+  gdi.addString("", 1, "Betalningsmetoder");
+  gdi.dropLine();
+  gdi.addString("", 10, "help:paymentmodes");
+  gdi.dropLine();
+  vector< pair<string, size_t> > modes;
+  oe->getPayModes(modes);
+  for (size_t k = 0; k < modes.size(); k++) {
+    gdi.fillRight();
+    string ms = itos(modes[k].second);
+    gdi.addInput("M" + itos(k), modes[k].first, 24).setExtra(modes[k].second);
+    if (k > 0)
+      gdi.addButton(gdi.getCX(), gdi.getCY(), gdi.scaleLength(20), 
+                    "RemovePayMode", MakeDash("-"), CompetitionCB, 
+                    "Ta bort", false, false).setExtra(modes[k].second);
+    if (k == 0) 
+      gdi.addButton(gdi.getCX(), gdi.getCY(), gdi.scaleLength(20), 
+                    "AddPayMode", "+", CompetitionCB, 
+                    "Lägg till", false, false);
+
+    gdi.dropLine(2.5);
+    gdi.popX();
+  }
+  bottom = max(bottom, gdi.getCY());
+
+  gdi.popX();
+  gdi.setCY(bottom);
+  gdi.fillRight();
+  gdi.addButton("SaveSettings", "Spara", CompetitionCB).setDefault();
+  gdi.addButton("Cancel", "Avbryt", CompetitionCB).setCancel();
+  gdi.dropLine(2);
+  gdi.setOnClearCb(CompetitionCB);
+  gdi.refresh();
+
+}
+
+void TabCompetition::saveSettings(gdioutput &gdi) {
+  vector<string> fields;
+  vector<int> fees(4);
+  fields.push_back("CardFee");
+  fields.push_back("EliteFee");
+  fields.push_back("EntryFee");
+  fields.push_back("YouthFee");
+
+  for (int k = 0; k<4; k++)
+    fees[k] = oe->getDCI().getInt(fields[k]);
+  string factor = oe->getDCI().getString("LateEntryFactor");
+  oe->getDI().saveDataFields(gdi);
+
+  bool changedFee = false;
+  bool changedCardFee = false;
+
+  for (int k = 0; k<4; k++) {
+    if (fees[k] != oe->getDCI().getInt(fields[k])) {
+      if (k > 0)
+        changedFee = true;
+      else {
+        changedCardFee = true;
+        if (oe->getDCI().getInt(fields[k]) == 0)
+          oe->getDI().setInt(fields[k].c_str(), -1); // Disallow zero card fee. -1 means no fee.
+      }
+    }
+  }
+  if (factor != oe->getDCI().getString("LateEntryFactor"))
+    changedFee = true;
+
+  oe->getDI().setInt("UTC", gdi.isChecked("UTC") ? 1 : 0);
+
+  oe->getDI().setInt("CurrencyFactor", gdi.isChecked("UseFraction") ? 100 : 1);
+  oe->getDI().setInt("CurrencyPreSymbol", gdi.isChecked("PreSymbol") ? 1 : 0);
+  oe->setCurrency(-1, "", "", false);
+
+  vector< pair<string, size_t> > modes;
+  oe->getPayModes(modes);
+  for (size_t k = 0; k < modes.size(); k++) {
+    string field = "M"+itos(k);
+    if (gdi.hasField(field)) {
+      string mode = gdi.getText("M"+itos(k));
+      int id = gdi.getBaseInfo(field.c_str()).getExtraInt();
+      oe->setPayMode(id, mode);
+    }
+  }
+
+  // Read from model
+  if (oe->isChanged()) {
+    oe->setProperty("Organizer", oe->getDCI().getString("Organizer"));
+    oe->setProperty("Street", oe->getDCI().getString("Street"));
+    oe->setProperty("Address", oe->getDCI().getString("Address"));
+    oe->setProperty("EMail", oe->getDCI().getString("EMail"));
+    oe->setProperty("Homepage", oe->getDCI().getString("Homepage"));
+
+    oe->setProperty("CardFee", oe->getDCI().getInt("CardFee"));
+    oe->setProperty("EliteFee", oe->getDCI().getInt("EliteFee"));
+    oe->setProperty("EntryFee", oe->getDCI().getInt("EntryFee"));
+    oe->setProperty("YouthFee", oe->getDCI().getInt("YouthFee"));
+
+    oe->setProperty("YouthAge", oe->getDCI().getInt("YouthAge"));
+    oe->setProperty("SeniorAge", oe->getDCI().getInt("SeniorAge"));
+
+    oe->setProperty("Account", oe->getDCI().getString("Account"));
+    oe->setProperty("LateEntryFactor", oe->getDCI().getString("LateEntryFactor"));
+
+    oe->setProperty("CurrencySymbol", oe->getDCI().getString("CurrencySymbol"));
+    oe->setProperty("CurrencyFactor", oe->getDCI().getInt("CurrencyFactor"));
+    oe->setProperty("CurrencyPreSymbol", oe->getDCI().getInt("CurrencyPreSymbol"));
+    oe->setProperty("CurrencySeparator", oe->getDCI().getString("CurrencySeparator"));
+
+    oe->setProperty("PayModes", oe->getDCI().getString("PayModes"));
+  }
+  oe->synchronize(true);
+  set<int> dummy;
+  if (changedFee && oe->getNumClasses() > 0) {
+    bool updateFee = gdi.ask("ask:changedcmpfee");
+
+    if (updateFee)
+      oe->applyEventFees(true, true, changedCardFee, dummy);
+  }
+  else if (changedCardFee)
+    oe->applyEventFees(false, false, true, dummy);
 }

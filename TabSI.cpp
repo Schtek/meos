@@ -399,7 +399,7 @@ int TabSI::siCB(gdioutput &gdi, int type, void *data)
             gdi.scrollToBottom();
             gdi.fillRight();
             gdi.pushX();
-            gdi.addSelection("ControlType", 150, 300, 0, "Enhetstyp");
+            gdi.addSelection("ControlType", 150, 300, 0, "Enhetstyp:");
 
             vector< pair<string, size_t> > d;
             oe->fillControlTypes(d);
@@ -407,7 +407,7 @@ int TabSI::siCB(gdioutput &gdi, int type, void *data)
            // oe->fillControlTypes(gdi, "ControlType");
             gdi.selectItemByData("ControlType", oPunch::PunchCheck);
 
-            gdi.addSelection("Filter", 150, 300, 0, "Datumfilter");
+            gdi.addSelection("Filter", 150, 300, 0, "Datumfilter:");
             for (size_t k = 0; k<filterDate.size(); k++) {
               gdi.addItem("Filter", filterDate[k], k);
             }
@@ -854,14 +854,8 @@ int TabSI::siCB(gdioutput &gdi, int type, void *data)
       di.setInt("Fee", lastFeeNum);
       r->setFlag(oRunner::FlagFeeSpecified, true);
       
-      int paid = 0;
-      if (gdi.isChecked("Paid")) {
-        paid = lastFeeNum;
-        if (cardFee > 0)
-          paid += cardFee;
-      }
+      writePayMode(gdi, lastFeeNum + (cardFee > 0 ? cardFee : 0), *r);
 
-      di.setInt("Paid", paid);
       di.setString("Phone", gdi.getText("Phone"));
       r->setFlag(oRunner::FlagTransferSpecified, gdi.hasField("AllStages"));
       r->setFlag(oRunner::FlagTransferNew, gdi.isChecked("AllStages"));
@@ -869,7 +863,6 @@ int TabSI::siCB(gdioutput &gdi, int type, void *data)
       r->setStartTimeS(gdi.getText("StartTime"));
 
       string bib = "";
-
       if (r->autoAssignBib())
         bib = ", " + lang.tl("Nummerlapp: ") + r->getBib();
 
@@ -890,8 +883,13 @@ int TabSI::siCB(gdioutput &gdi, int type, void *data)
       if (r->getDI().getInt("CardFee") != 0)
         info+=lang.tl(", Hyrbricka");
 
+      vector< pair<string, size_t> > modes;
+      oe->getPayModes(modes);
+      string pm;
+      if (modes.size() > 1 &&  size_t(r->getPaymentMode()) < modes.size())
+        pm = " (" + modes[r->getPaymentMode()].first + ")";
       if (r->getDI().getInt("Paid")>0)
-        info+=lang.tl(", Betalat");
+        info += lang.tl(", Betalat") + pm;
 
       if (bib.length()>0)
         info+=bib;
@@ -963,6 +961,42 @@ int TabSI::siCB(gdioutput &gdi, int type, void *data)
       gdi.setInputStatus("StatusOK", !dnf);
       gdi.check("StatusOK", !dnf);
     }
+    else if (bi.id == "CCSClear") {
+      if (gdi.ask("Vill du göra om avbockningen från början igen?")) {
+        checkedCardFlags.clear();
+        gdi.restore("CCSInit", false);
+        showCheckCardStatus(gdi, "fillrunner");
+        showCheckCardStatus(gdi, "stat");
+        gdi.refresh();
+      }
+    }
+    else if (bi.id == "CCSReport") {
+      gdi.restore("CCSInit", false);
+      showCheckCardStatus(gdi, "stat");
+      showCheckCardStatus(gdi, "report");
+      gdi.refresh();
+    }
+    else if (bi.id == "CCSPrint") {
+      //gdi.print(oe);
+      gdioutput gdiPrint("print", gdi.getScale(), gdi.getEncoding());
+      gdiPrint.clearPage(false);
+      
+      int tCardPosX = cardPosX;
+      int tCardPosY = cardPosY;
+      int tCardOffsetX = cardOffsetX;
+      int tCardCurrentCol = cardCurrentCol;
+
+      showCheckCardStatus(gdiPrint, "stat");
+      showCheckCardStatus(gdiPrint, "report");
+      showCheckCardStatus(gdiPrint, "tickoff");
+      gdiPrint.refresh();
+      gdiPrint.print(oe);
+
+      cardPosX = tCardPosX;
+      cardPosY = tCardPosY;
+      cardOffsetX = tCardOffsetX;
+      cardCurrentCol = tCardCurrentCol;
+    }
   }
   else if (type==GUI_LISTBOX) {
     ListBoxInfo bi=*(ListBoxInfo *)data;
@@ -975,6 +1009,9 @@ int TabSI::siCB(gdioutput &gdi, int type, void *data)
           gdi.setText("Club", r->getClub());
         gdi.setText("FindMatch", lang.tl("Press Enter to continue"), true);
       }
+    }
+    else if (bi.id == "PayMode") {
+      updateEntryInfo(gdi);
     }
     else if (bi.id=="ComPort") {
       char bf[64];
@@ -991,7 +1028,7 @@ int TabSI::siCB(gdioutput &gdi, int type, void *data)
     }
     else if (bi.id=="ReadType") {
       gdi.restore("SIPageLoaded");
-      mode=SIMode(bi.data);
+      mode = SIMode(bi.data);
       gdi.setInputStatus("StartInfo", mode == ModeEntry);
     
       if (mode==ModeAssignCards || mode==ModeEntry) {
@@ -1022,6 +1059,9 @@ int TabSI::siCB(gdioutput &gdi, int type, void *data)
       }
       else if (mode == ModeCardData) {
         showModeCardData(gdi);
+      }
+      else if (mode == ModeCheckCards) {
+        showCheckCardStatus(gdi, "init");
       }
       gdi.refresh();
     }
@@ -1265,7 +1305,7 @@ int TabSI::siCB(gdioutput &gdi, int type, void *data)
       r->synchronize();
 
       if (r && r->getCardNo()!=si) {
-        if (si==0 || !oe->checkCardUsed(gdi, si)) {
+        if (si==0 || !oe->checkCardUsed(gdi,*r, si)) {
           r->setCardNo(si, false);
           r->getDI().setInt("CardFee", oe->getDI().getInt("CardFee"));
           r->synchronize();
@@ -1288,7 +1328,7 @@ int TabSI::siCB(gdioutput &gdi, int type, void *data)
       storedInfo.clear();
       storedInfo.storedName = gdi.getText("Name");
       storedInfo.storedCardNo = gdi.getText("CardNo");
-      storedInfo.storedClub = gdi.getText("Club");
+      storedInfo.storedClub = gdi.hasField("Club") ? gdi.getText("Club") : "";
       storedInfo.storedFee = gdi.getText("Fee", true);
 
       ListBoxInfo lbi;
@@ -1300,7 +1340,7 @@ int TabSI::siCB(gdioutput &gdi, int type, void *data)
       storedInfo.allStages = gdi.isChecked("AllStages");
       storedInfo.rentState = gdi.isChecked("RentCard");
       storedInfo.hasPaid = gdi.isChecked("Paid");
-
+      storedInfo.payMode = gdi.hasField("PayMode") ? gdi.getSelectedItem("PayMode").first : 0;
     }
     return 1;
   }
@@ -1518,6 +1558,7 @@ bool TabSI::loadPage(gdioutput &gdi) {
     gdi.addSelection("ReadType", 200, 200, SportIdentCB);
     gdi.addItem("ReadType", lang.tl("Avläsning/radiotider"), ModeReadOut);
     gdi.addItem("ReadType", lang.tl("Tilldela hyrbrickor"), ModeAssignCards);
+    gdi.addItem("ReadType", lang.tl("Avstämning hyrbrickor"), ModeCheckCards);
     gdi.addItem("ReadType", lang.tl("Anmälningsläge"), ModeEntry);
     gdi.addItem("ReadType", lang.tl("Print Card Data"), ModeCardData);
 
@@ -1580,6 +1621,10 @@ bool TabSI::loadPage(gdioutput &gdi) {
   else if (mode == ModeCardData) {
     showModeCardData(gdi);
   }
+  else if (mode == ModeCheckCards) {
+    showCheckCardStatus(gdi, "init");
+  }
+
 
   // Unconditional clear
   activeSIC.clear(0);
@@ -1672,6 +1717,15 @@ void TabSI::insertSICardAux(gdioutput &gdi, SICard &sic)
       gdi.addInfoBox("SIREAD", "Inläst bricka ställd i kö");
     }
     else entryCard(gdi, sic);
+    return;
+  }
+  if (mode==ModeCheckCards) {
+    if (!pageLoaded) {
+      CardQueue.push_back(sic);
+      gdi.addInfoBox("SIREAD", "Inläst bricka ställd i kö");
+    }
+    else 
+      checkCard(gdi, sic, true);
     return;
   }
   else if (mode == ModeCardData) {
@@ -2380,16 +2434,20 @@ void TabSI::entryCard(gdioutput &gdi, const SICard &sic)
 
 void TabSI::assignCard(gdioutput &gdi, const SICard &sic)
 {
-  if (oe->checkCardUsed(gdi, sic.CardNumber))
-    return;
 
   if (interactiveReadout) {
+    pRunner rb = oe->getRunner(runnerMatchedId, 0);
+
+    if (rb && oe->checkCardUsed(gdi, *rb, sic.CardNumber))
+      return;
+
     gdi.setText("CardNo", sic.CardNumber);
     if (runnerMatchedId != -1 && gdi.isChecked("AutoTie"))
       tieCard(gdi);
     return;
   }
 
+  int storedAssigneIndex = currentAssignIndex;
   //Try first current focus
   BaseInfo *ii=gdi.getInputFocus();
   char sicode[32];
@@ -2414,6 +2472,10 @@ void TabSI::assignCard(gdioutput &gdi, const SICard &sic)
   if (ii && ii->getExtraInt()) {
     pRunner r=oe->getRunner(ii->getExtraInt(), 0);
     if (r) {
+      if (oe->checkCardUsed(gdi, *r, sic.CardNumber)) {
+        currentAssignIndex = storedAssigneIndex;
+        return;
+      }
       if (r->getCardNo()==0 ||
                 gdi.ask("Skriv över existerande bricknummer?")) {
 
@@ -2477,7 +2539,7 @@ void TabSI::generateEntryLine(gdioutput &gdi, pRunner r)
       gdi.setText("Fee", lastFee);
 
     gdi.dropLine(1.2);
-    gdi.addCheckbox("Paid", "Kontant betalning", SportIdentCB, storedInfo.hasPaid);
+    generatePayModeWidget(gdi);
     gdi.dropLine(-1.2);
   }
 
@@ -2522,6 +2584,10 @@ void TabSI::generateEntryLine(gdioutput &gdi, pRunner r)
     gdi.check("RentCard", dci.getInt("CardFee") != 0);
     if (gdi.hasField("Paid"))
       gdi.check("Paid", dci.getInt("Paid")>0);
+    else if (gdi.hasField("PayMode")) {
+      int paidId = dci.getInt("Paid") > 0 ? r->getPaymentMode() : 1000;
+      gdi.selectItemByData("PayMode", paidId);
+    }
 
     if (gdi.hasField("AllStages")) {
       gdi.check("AllStages", r->hasFlag(oRunner::FlagTransferNew));
@@ -2565,7 +2631,14 @@ void TabSI::updateEntryInfo(gdioutput &gdi)
 
   string method;
   if (oe->getMeOSFeatures().hasFeature(MeOSFeatures::Economy)) {
-    if (gdi.isChecked("Paid"))
+    bool invoice = true; 
+    if (gdi.hasField("PayMode")) {
+      invoice = gdi.getSelectedItem("PayMode").first == 1000;
+    }
+    else
+      invoice = !gdi.isChecked("Paid");
+
+    if (!invoice)
       method = lang.tl("Att betala");
     else
       method = lang.tl("Faktureras");
@@ -2683,10 +2756,8 @@ void TabSI::tieCard(gdioutput &gdi) {
   if (r == 0)
     throw meosException("Invalid binding");
 
-  pRunner old = oe->getRunnerByCardNo(card, 0, true, true);
-  if (old && old != r) {
-    throw meosException("Brickan används av X.#" + old->getName());
-  }
+  if (oe->checkCardUsed(gdi, *r, card))
+    return;
 
   if (r->getCardNo() > 0 && r->getCardNo() != card) {
     if (!gdi.ask("X har redan bricknummer Y. Vill du ändra det?#" + r->getName() + "#" + itos(r->getCardNo())))
@@ -3159,12 +3230,15 @@ void TabSI::StoredStartInfo::clear() {
   rentState = false;
   storedStartTime.clear();
   hasPaid = false;
+  payMode = 1000;
   //allStages = lastAllStages; // Always use last setting
   storedClassId = 0;
 }
 
 void TabSI::clearCompetitionData() {
   savedCardUniqueId = 1;
+  checkedCardFlags.clear();
+  currentAssignIndex = 0;
 }
 
 SICard &TabSI::getCard(int id) const {
@@ -3181,4 +3255,247 @@ SICard &TabSI::getCard(int id) const {
     }
   }
   throw meosException("Interal error");
+}
+
+bool compareCardNo(const pRunner &r1, const pRunner &r2) {
+  int c1 = r1->getCardNo();
+  int c2 = r2->getCardNo();
+  if (c1 != c2)
+    return c1 < c2;
+  int f1 = r1->getFinishTime();
+  int f2 = r2->getFinishTime();
+  if (f1 != f2)
+    return f1 < f2;
+
+  return false;
+}
+
+string TabSI::getCardInfo(bool param, vector<int> &count) const {
+  if (!param) {
+    assert(count.size() == 8);
+    return "Totalt antal unika avbockade brickor: X#" + itos(count[CNFCheckedAndUsed] + 
+                                                             count[CNFChecked] + 
+                                                             count[CNFCheckedNotRented] + 
+                                                             count[CNFCheckedRentAndNotRent]);
+  }
+  count.clear();
+  count.resize(8);
+  for (map<int, CardNumberFlags>::const_iterator it = checkedCardFlags.begin(); 
+    it != checkedCardFlags.end(); ++it) {
+      ++count[it->second];
+  }
+
+  string msg = "Uthyrda: X, Egna: Y, Avbockade uthyrda: Z#" + itos(count[CNFUsed] + count[CNFCheckedAndUsed]) + 
+                                                        "#" + itos(count[CNFNotRented] + count[CNFCheckedNotRented]) + 
+                                                        "#" + itos(count[CNFCheckedAndUsed]);
+
+  return msg;
+}
+
+void TabSI::showCheckCardStatus(gdioutput &gdi, const string &cmd) {
+  vector<pRunner> r;
+  const int cx = gdi.getCX();
+  const int col1 = gdi.scaleLength(50);
+  const int col2 = gdi.scaleLength(200);
+ 
+  if (cmd == "init") {
+    gdi.disableInput("Interactive");
+    gdi.disableInput("Database");
+    gdi.disableInput("PrintSplits");
+    gdi.disableInput("UseManualInput");
+    gdi.fillDown();   
+    gdi.addString("", 10, "help:checkcards");
+
+    gdi.dropLine();
+    gdi.fillRight();
+    gdi.pushX();
+    gdi.addButton("CCSReport", "Rapport", SportIdentCB);
+    gdi.addButton("CCSClear", "Nollställ", SportIdentCB, 
+                  "Nollställ minnet; markera alla brickor som icke avbockade");
+    gdi.addButton("CCSPrint", "Skriv ut...", SportIdentCB);
+
+    gdi.popX();
+    gdi.dropLine(3);
+    gdi.fillDown();
+    gdi.setRestorePoint("CCSInit");
+    showCheckCardStatus(gdi, "fillrunner");
+    showCheckCardStatus(gdi, "stat");
+    showCheckCardStatus(gdi, "tickoff");
+    return;
+  }
+  else if (cmd == "fillrunner") {
+    oe->getRunners(0, 0, r);
+
+    for (size_t k = 0; k < r.size(); k++) {
+      int cno = r[k]->getCardNo();
+      if (cno == 0)
+        continue;
+      int cf = checkedCardFlags[cno];
+      if (r[k]->getDI().getInt("CardFee") != 0)
+        checkedCardFlags[cno] = CardNumberFlags(cf | CNFUsed);
+      else
+        checkedCardFlags[cno] = CardNumberFlags(cf | CNFNotRented);
+    }
+  }
+  else if (cmd == "stat") {
+    vector<int> count;
+    gdi.addString("CardInfo", fontMediumPlus, getCardInfo(true, count));
+    gdi.addString("CardTicks", 0, getCardInfo(false, count));
+    if (count[CNFCheckedRentAndNotRent] + count[CNFRentAndNotRent] > 0) {
+      oe->getRunners(0, 0, r);
+      stable_sort(r.begin(), r.end(), compareCardNo);
+      gdi.dropLine();
+      string msg = "Brickor markerade som både uthyrda och egna: X#" + itos(count[CNFCheckedRentAndNotRent] + count[CNFRentAndNotRent]);
+      gdi.addString("", 1, msg).setColor(colorDarkRed);
+      gdi.dropLine(0.5);
+      for (size_t k = 0; k < r.size(); k++) {
+        int cno = r[k]->getCardNo();
+        if (cno == 0 || r[k]->getRaceNo() > 0)
+            continue;
+
+        if (checkedCardFlags[cno] == CNFCheckedRentAndNotRent ||
+            checkedCardFlags[cno] == CNFRentAndNotRent) {
+          int yp = gdi.getCY();
+          string cp = r[k]->getCompleteIdentification();
+          bool rent = r[k]->getDI().getInt("CardFee") != 0;
+          string info = rent ? (" (" + lang.tl("Hyrd") + ")") : "";
+          gdi.addStringUT(yp, cx, 0, itos(cno) + info);
+          gdi.addStringUT(yp, cx + col2, 0, cp);
+        }
+      }
+    }
+  }
+  else if (cmd == "report") {
+    oe->getRunners(0, 0, r);
+    stable_sort(r.begin(), r.end(), compareCardNo);
+    bool showHead = false;
+    int count = 0;
+    for (size_t k = 0; k < r.size(); k++) {
+      int cno = r[k]->getCardNo();
+      if (cno == 0)
+        continue;
+      if (r[k]->getRaceNo() > 0)
+        continue;
+      CardNumberFlags f = checkedCardFlags[cno];
+      if (f == CNFRentAndNotRent || f == CNFUsed) {
+        if (!showHead) {
+          gdi.dropLine();
+          string msg = "Uthyrda brickor som inte avbockats";
+          gdi.addString("", fontMediumPlus, msg);
+          gdi.fillDown();
+          gdi.dropLine(0.5);
+          showHead = true;
+        } 
+        int yp = gdi.getCY();
+        gdi.addStringUT(yp, cx, 0, itos(++count));
+        gdi.addStringUT(yp, cx + col1, 0, itos(cno));
+        string cp = r[k]->getCompleteIdentification();
+
+        if (r[k]->getStatus() != StatusUnknown)
+          cp += " " + r[k]->getStatusS();
+        else
+          cp += MakeDash(" -");
+
+        int s = r[k]->getStartTime();
+        int f = r[k]->getFinishTime();
+        if (s> 0 || f>0) {
+          cp += ", " + (s>0 ? r[k]->getStartTimeS() : string("?")) + MakeDash(" - ") 
+                 + (f>0 ? r[k]->getFinishTimeS() : string("?"));  
+        }
+        gdi.addStringUT(yp, cx + col2, 0, cp);
+      }
+    }
+
+    if (!showHead) {
+      gdi.dropLine();
+      string msg = "Alla uthyrda brickor har bockats av.";
+      gdi.addString("", fontMediumPlus, msg).setColor(colorGreen);
+    }
+  }
+  else if (cmd == "tickoff") {
+    SICard sic;
+    sic.clear(0);
+    for (map<int, CardNumberFlags>::const_iterator it = checkedCardFlags.begin(); 
+        it != checkedCardFlags.end(); ++it) {
+      int stat = it->second;
+      if (stat & CNFChecked) {
+        sic.CardNumber = it->first;
+        checkCard(gdi, sic, false);
+      }
+    }
+    gdi.refresh();
+    return;
+  }
+  checkHeader = false;
+  gdi.dropLine();
+}
+
+void TabSI::checkCard(gdioutput &gdi, const SICard &card, bool updateAll) {
+  bool wasChecked = (checkedCardFlags[card.CardNumber] & CNFChecked) != 0 && updateAll;
+
+  checkedCardFlags[card.CardNumber] = CardNumberFlags(checkedCardFlags[card.CardNumber] | CNFChecked);
+  vector<int> count;
+  if (!checkHeader) {
+    checkHeader = true;
+    gdi.addString("", fontMediumPlus, "Avbockade brickor:");
+    gdi.dropLine(0.5);
+    cardPosX = gdi.getCX();
+    cardPosY = gdi.getCY();
+    cardOffsetX = gdi.scaleLength(60);
+    cardNumCol = 12;
+    cardCurrentCol = 0;
+  }
+
+  if (updateAll) {
+    gdi.setTextTranslate("CardInfo", getCardInfo(true, count));
+    gdi.setTextTranslate("CardTicks", getCardInfo(false, count));
+  }
+  TextInfo &ti = gdi.addStringUT(cardPosY, cardPosX + cardCurrentCol * cardOffsetX, 0, itos(card.CardNumber));
+  if (wasChecked)
+    ti.setColor(colorRed);
+  if (++cardCurrentCol >= cardNumCol) {
+    cardCurrentCol = 0;
+    cardPosY += gdi.getLineHeight();
+  }
+
+  if (updateAll) {
+    gdi.scrollToBottom();
+    gdi.refreshFast();
+  }
+}
+
+void TabSI::generatePayModeWidget(gdioutput &gdi) const {
+  vector< pair<string, size_t> > pm;
+  oe->getPayModes(pm);
+  assert(pm.size() > 0);
+  if (pm.size() == 1) {
+    assert(pm[0].second == 0);
+    gdi.addCheckbox("Paid", "#" + pm[0].first, SportIdentCB, storedInfo.hasPaid);
+  }
+  else {
+    pm.insert(pm.begin(), make_pair(lang.tl("Faktureras"), 1000));
+    gdi.addSelection("PayMode", 110, 100, SportIdentCB);
+    gdi.addItem("PayMode", pm);
+    gdi.selectItemByData("PayMode", storedInfo.payMode);
+    gdi.autoGrow("PayMode");
+  }
+}
+
+bool TabSI::writePayMode(gdioutput &gdi, int amount, oRunner &r) {
+  int paid = 0;
+  bool hasPaid = false;
+      
+  if (gdi.hasField("PayMode"))
+    hasPaid = gdi.getSelectedItem("PayMode").first != 1000;
+
+  bool fixPay = gdi.isChecked("Paid");
+  if (hasPaid || fixPay) {
+    paid = amount;
+  }
+
+  r.getDI().setInt("Paid", paid);
+  if (hasPaid) {
+    r.setPaymentMode(gdi.getSelectedItem("PayMode").first);
+  }
+  return hasPaid || fixPay;
 }

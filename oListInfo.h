@@ -103,6 +103,7 @@ enum EPostType
   lRunnerUMMasterPoint,
   lRunnerTimePlaceFixed,
   lRunnerLegNumberAlpha,
+  lRunnerLegNumber,
 
   lRunnerBirthYear,
   lRunnerAge,

@@ -515,6 +515,14 @@ const string &oEvent::formatSpecialStringAux(const oPrintPost &pp, const oListPa
       }
       break;
 
+    case lRunnerLegNumber:
+      if (t && t->getClassRef() && legIndex >= 0) {
+         int legNumber, legOrder;
+         t->getClassRef()->splitLegNumberParallel(legIndex, legNumber, legOrder);
+         sptr = &itos(legNumber+1);
+      }
+      break;
+
     case lCourseClimb: {
       int len = pc ? pc->getDCI().getInt("Climb") : 0;
       if (len > 0)
@@ -907,15 +915,20 @@ const string &oEvent::formatListStringAux(const oPrintPost &pp, const oListParam
         if (invalidClass)
           sptr = &lang.tl("Struken");
         else if (pp.resultModuleIndex == -1) {
-          if (r->prelStatusOK() && pc && !pc->getNoTiming()) {
+          bool ok = r->prelStatusOK();
+          if (ok && pc && !pc->getNoTiming()) {
             sptr = &r->getRunningTimeS();
             if (r->getNumShortening() > 0) {
               sprintf_s(bf, "*%s", sptr->c_str());
               sptr = 0;
             }
           }
-          else
-            sptr = &r->getStatusS();
+          else {
+            if (ok)
+              sptr = &formatStatus(StatusOK);
+            else
+              sptr = &r->getStatusS();
+          }
         }
         else {
           const oAbstractRunner::TempResult &res = r->getTempResult(pp.resultModuleIndex);
@@ -1083,7 +1096,7 @@ const string &oEvent::formatListStringAux(const oPrintPost &pp, const oListParam
       }
       break;
     case lRunnerPlace:
-      if (r && !invalidClass) {
+      if (r && !invalidClass  && pc && !pc->getNoTiming()) {
         if (pp.resultModuleIndex == -1)
           strcpy_s(bf, r->getPrintPlaceS(pp.text.empty()).c_str() );
         else
@@ -1091,7 +1104,8 @@ const string &oEvent::formatListStringAux(const oPrintPost &pp, const oListParam
       }
       break;
     case lRunnerTotalPlace:
-      if (r && !invalidClass) strcpy_s(bf, r->getPrintTotalPlaceS(pp.text.empty()).c_str() );
+      if (r && !invalidClass && pc && !pc->getNoTiming())
+        strcpy_s(bf, r->getPrintTotalPlaceS(pp.text.empty()).c_str() );
       break;
 
     case lRunnerGeneralPlace:
@@ -1122,7 +1136,7 @@ const string &oEvent::formatListStringAux(const oPrintPost &pp, const oListParam
       break;
 
     case lRunnerClassCoursePlace:
-      if (r && !invalidClass) {
+      if (r && !invalidClass && pc && !pc->getNoTiming()) {
         int p = r->getCoursePlace();
         if (p>0 && p<10000)
           sprintf_s(bf, "%d.", p);
@@ -1212,24 +1226,25 @@ const string &oEvent::formatListStringAux(const oPrintPost &pp, const oListParam
       break;
 
     case lRunnerTimeAfter:
-      if (r && pc && !invalidClass) {
+      if (r && pc && !invalidClass && !pc->getNoTiming()) {
+        int after = 0;
         if (pp.resultModuleIndex == -1) {
           int tleg=r->tLeg>=0 ? r->tLeg:0;
-          if (r->tStatus==StatusOK &&  pc && !pc->getNoTiming() ) {
-            if (r->getNumShortening() == 0) {
-              int after=r->getRunningTime()-pc->getBestLegTime(tleg);
-              if (after > 0)
-                sprintf_s(bf, "+%d:%02d", after/60, after%60);
-            }
-            else {
-              sptr = &MakeDash("-");
-            }
+          int brt = pc->getBestLegTime(tleg);
+          if (r->prelStatusOK() && brt > 0) {
+            after=r->getRunningTime() - brt;
           }
         }
         else {
-          int after = r->getTempResult(pp.resultModuleIndex).getTimeAfter();
+          after = r->getTempResult(pp.resultModuleIndex).getTimeAfter();
+        }
+  
+        if (r->getNumShortening() == 0) {
           if (after > 0)
             sprintf_s(bf, "+%d:%02d", after/60, after%60);
+        }
+        else {
+          sptr = &MakeDash("-");
         }
       }
       break;
@@ -1271,6 +1286,7 @@ const string &oEvent::formatListStringAux(const oPrintPost &pp, const oListParam
       }
       break;
     case lRunnerLegNumberAlpha:
+    case lRunnerLegNumber:
       if (r)
         return formatSpecialStringAux(pp, par, t, r->getLegNumber(), 0, 0, counter);
       else
@@ -1511,13 +1527,15 @@ const string &oEvent::formatListStringAux(const oPrintPost &pp, const oListParam
       }
       break;
     case lTeamPlace:
-      if (t && !invalidClass) {
-        if (pp.resultModuleIndex == -1)
+      if (t && !invalidClass && pc && !pc->getNoTiming()) {
+        if (pp.resultModuleIndex == -1) {
           strcpy_s(bf, t->getLegPrintPlaceS(legIndex, false, pp.text.empty()).c_str());
+        }
         else
           sptr = &t->getTempResult(pp.resultModuleIndex).getPrintPlaceS(pp.text.empty());
       }
       break;
+
     case lTeamLegTimeStatus:
       if (invalidClass)
         sptr = &lang.tl("Struken");
@@ -1604,7 +1622,7 @@ const string &oEvent::formatListStringAux(const oPrintPost &pp, const oListParam
       }
       break;
     case lTeamTotalPlace:
-      if (t && !invalidClass) strcpy_s(bf, t->getPrintTotalPlaceS(pp.text.empty()).c_str() );
+      if (t && !invalidClass && pc && !pc->getNoTiming()) strcpy_s(bf, t->getPrintTotalPlaceS(pp.text.empty()).c_str() );
       break;
 
       break;
@@ -2027,11 +2045,11 @@ void oEvent::generateList(gdioutput &gdi, bool reEvaluate, const oListInfo &li, 
   oe->calcUseStartSeconds();
   oe->calculateNumRemainingMaps();
   oe->updateComputerTime();
-  vector< pair<string, string> > tagNameList;
+  vector< pair<int, pair<string, string> > > tagNameList;
   oe->getGeneralResults(false, tagNameList, false);
   string src;
   for (size_t k = 0; k < tagNameList.size(); k++)
-    oe->getGeneralResult(tagNameList[k].first, src).setContext(&li.lp);
+    oe->getGeneralResult(tagNameList[k].second.first, src).setContext(&li.lp);
 
   string listname;
   if (!li.Head.empty()) {
@@ -2074,7 +2092,7 @@ void oEvent::generateList(gdioutput &gdi, bool reEvaluate, const oListInfo &li, 
   }
   
   for (size_t k = 0; k < tagNameList.size(); k++)
-    oe->getGeneralResult(tagNameList[k].first, src).clearContext();
+    oe->getGeneralResult(tagNameList[k].second.first, src).clearContext();
 
   gdi.setListDescription(listname);
   if (updateScrollBars)

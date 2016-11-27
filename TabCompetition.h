@@ -79,6 +79,9 @@ class TabCompetition :
                               const string &fromDate,
                               vector<CompetitionInfo> &events) const;
 
+  void saveSettings(gdioutput &gdi);
+  void loadSettings(gdioutput &gdi);
+
   void getEventorCmpData(gdioutput &gdi, int id,
                          const string &eventFile,
                          const string &clubFile,
