@@ -2223,4 +2223,6 @@ void SICard::deserializePunches(const string &arg) {
 
     *tp = atoi(mark[1].c_str());
   }
+  if (out.size() == 1)
+    PunchOnly = true;
 }

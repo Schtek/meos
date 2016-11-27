@@ -93,6 +93,7 @@ protected:
 class TotalResultAtControl : public ResultAtControl {
 protected:
   int deduceTime(oRunner &runner, int startTime) const;
+  RunnerStatus deduceStatus(oRunner &runner) const;
   int score(oRunner &runner, RunnerStatus st, int time, int points, bool asTeamMember) const;
 };
 

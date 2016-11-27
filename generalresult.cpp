@@ -462,6 +462,35 @@ int ResultAtControl::score(oRunner &runner, RunnerStatus st, int time, int point
     return TK + st;
 }
 
+RunnerStatus TotalResultAtControl::deduceStatus(oRunner &runner) const {
+  RunnerStatus singleStat = ResultAtControl::deduceStatus(runner);
+  if (singleStat != StatusOK)
+    return singleStat;
+  
+  RunnerStatus inputStatus = StatusOK;
+  if (runner.getTeam() && getListParamTimeFromControl() <= 0) {
+    // Only use input time when start time is used
+    const pTeam t = runner.getTeam();
+    if (runner.getLegNumber()>0 && t->getClassRef()) {
+      // Find base leg
+      int legIx = runner.getLegNumber();
+      const pClass cls = t->getClassRef();
+      while (legIx > 0 && (cls->isParallel(legIx) || cls->isOptional(legIx)))
+        legIx--;
+      if (legIx > 0)
+        inputStatus = t->getLegStatus(legIx-1, true);
+    }
+    else {
+      inputStatus = t->getInputStatus();
+    }
+  }
+  else {
+    inputStatus = runner.getInputStatus();
+  }
+
+  return inputStatus; // Single status is OK.
+}
+
 int TotalResultAtControl::deduceTime(oRunner &runner, int startTime) const {
   int singleTime = ResultAtControl::deduceTime(runner, startTime);
   
@@ -529,7 +558,10 @@ RunnerStatus ResultAtControl::deduceStatus(oRunner &runner) const {
     runner.getSplitTime(fc, stat, rt);
     return stat;
   }
-  return runner.getStatus();
+  RunnerStatus st = runner.getStatus();
+  if (st == StatusUnknown && runner.getRunningTime() > 0)
+    return StatusOK;
+  return st;
 }
 
 int ResultAtControl::deduceTime(oRunner &runner, int startTime) const {

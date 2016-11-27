@@ -72,6 +72,11 @@ protected:
   // Returns true if a SI-manager line is identified
   bool checkSimanLine(const oEvent &oe, const vector<char *> &sp, SICard &cards);
 
+  // Check and process a punch line
+  static int selectPunchIndex(const string &competitionDate, const vector<char *> &sp, 
+                              int &cardIndex, int &timeIndex, int &dateIndex,
+                              string &processedTime, string &date);
+
 public:
   void parse(const string &file, list< vector<string> > &dataOutput);
 

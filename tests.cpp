@@ -8,10 +8,7 @@
 ************************************************************************/
 #include "stdafx.h"
 
-#include <cassert>
 #include "testmeos.h"
-#include "meosexception.h"
-#include "oListInfo.h"
 
-void registerTests(TestMeOS &tm) { 
+void registerTests(TestMeOS &tm) {
 }

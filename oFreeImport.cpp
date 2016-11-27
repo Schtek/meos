@@ -381,6 +381,7 @@ oFreeImport::oFreeImport(void)
   separator[';']=1;
   separator['(']=1;
   separator[')']=1;
+  separator['/']=1;
 
   loaded=false;
 }
@@ -576,10 +577,26 @@ void oEntryBlock::setCardNo(int c)
 {
   if (ePersons.empty() || ePersons.back().cardNo!=0)
     ePersons.push_back(oEntryPerson(eClub));
-
-  ePersons.back().cardNo=c;
-
+  
+  for (size_t i = 0; i < ePersons.size(); i++) {
+    if (ePersons[i].cardNo == 0) {
+      ePersons[i].cardNo=c;
+      break;
+    }
+  }
   completeName();
+}
+
+bool oEntryBlock::needCard() const {  
+  if (ePersons.empty())
+    return true;
+
+  for (size_t i = 0; i < ePersons.size(); i++) {
+    if (ePersons[i].cardNo == 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 string oEntryBlock::getTeamName() const
@@ -1661,7 +1678,7 @@ void oFreeImport::extractEntries(char *str, vector<oEntryBlock> &entries)
         }
       }
       else if (type == Card) {
-        if (lastInsertedType == Card)
+        if (lastInsertedType == Card && !entry.needCard())
           continue;
 
         lastInsertedType = Card;

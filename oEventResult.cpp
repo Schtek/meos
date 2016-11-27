@@ -330,10 +330,10 @@ bool oEvent::calculateTeamResults(int leg, bool totalMultiday)
     }
 
     if (totalMultiday)
-      it->_places[sleg].totalP = p;
+        it->_places[sleg].totalP = p;
     else
-      it->_places[sleg].p = p;
-  }
+        it->_places[sleg].p = p;
+    }
   return true;
 }
 
@@ -496,16 +496,16 @@ void oEvent::loadGeneralResults(bool forceReload) const {
 }
 
 
-void oEvent::getGeneralResults(bool onlyEditable, vector< pair<string, string> > &tagNameList, bool includeDate) const {
+void oEvent::getGeneralResults(bool onlyEditable, vector< pair<int, pair<string, string> > > &tagNameList, bool includeDate) const {
   tagNameList.clear();
   for (size_t k = 0; k < generalResults.size(); k++) {
     if (!onlyEditable || generalResults[k].isDynamic()) {
-      tagNameList.push_back(make_pair(generalResults[k].tag, generalResults[k].name));
+      tagNameList.push_back(make_pair(100 + k, make_pair(generalResults[k].tag, lang.tl(generalResults[k].name))));
       if (includeDate && generalResults[k].isDynamic()) {
         const DynamicResult &dr = dynamic_cast<const DynamicResult &>(*generalResults[k].ptr);
         const string &date = dr.getTimeStamp();
         if (!date.empty())
-          tagNameList.back().second += " [" + date + "]";
+          tagNameList.back().second.second += " [" + date + "]";
       }
 
     }

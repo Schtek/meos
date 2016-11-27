@@ -401,6 +401,12 @@ public:
   //Get the number of parallel runners on a given leg (before and after)
   int getNumParallel(int leg) const;
 
+  // Get the linear leg number of the next (non-parallel with this) leg
+  int getNextBaseLeg(int leg) const;
+
+  // Get the linear leg number of the preceeding leg
+  int getPreceedingLeg(int leg) const;
+
   /// Get a string 1, 2a, etc describing the number of the leg
   string getLegNumber(int leg) const;
 

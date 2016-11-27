@@ -186,6 +186,9 @@ int TabCompetition::newGuideCB(gdioutput &gdi, int type, void *data)
       oe->getMeOSFeatures().useFeature(MeOSFeatures::RunnerDb, true, *oe);
       oe->getMeOSFeatures().useFeature(MeOSFeatures::Relay, true, *oe);
 
+      if (oe->hasMultiRunner())
+        oe->getMeOSFeatures().useFeature(MeOSFeatures::MultipleRaces, true, *oe);
+
       gdi.clearPage(true);
       gdi.fillRight();
       gdi.addString("", fontMediumPlus, "Skapar tävling...");
@@ -287,7 +290,7 @@ void TabCompetition::newCompetitionGuide(gdioutput &gdi, int step) {
     gdi.popX();
     gdi.dropLine(2);
     gdi.fillDown();
-
+    gdi.scrollToBottom();
     gdi.refresh();
   }
   else if (step == 2) {
@@ -310,6 +313,12 @@ void TabCompetition::newCompetitionGuide(gdioutput &gdi, int step) {
     gdi.addButton("FAll", "Alla funktioner", NewGuideCB);
     gdi.addButton("FSelect", "Välj från lista...", NewGuideCB);
     gdi.addButton("Cancel", "Avbryt", NewGuideCB).setCancel();
+
+    if (oe->hasTeam()) {
+      gdi.disableInput("FIndividual");
+      gdi.disableInput("FForked");
+      gdi.disableInput("FBasic");
+    }
 
     gdi.popX();
     gdi.fillDown();

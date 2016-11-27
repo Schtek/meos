@@ -364,8 +364,68 @@ int oTeam::getLegFinishTime(int leg) const
     }
   }
 
-  if (unsigned(leg)<Runners.size() && Runners[leg])
-    return Runners[leg]->getFinishTime();
+  if (unsigned(leg)<Runners.size() && Runners[leg]) {
+    int ft = Runners[leg]->getFinishTime();
+    if (Class) {
+      bool extra = Class->getLegType(leg) == LTExtra ||
+                   Class->getLegType(leg+1) == LTExtra; 
+
+      bool par = Class->isParallel(leg) ||
+                 Class->isParallel(leg+1); 
+
+      if (extra) {
+        ft = 0;
+        // Minimum over extra legs
+        int ileg = leg;
+        while (ileg > 0 && Class->getLegType(ileg) == LTExtra)
+          ileg--;
+
+        while (size_t(ileg) < Class->getNumStages()) {
+          int ift = 0;
+          if (Runners[ileg]) {
+            ift = Runners[ileg]->getFinishTimeAdjusted();
+          }
+
+          if (ift > 0) {
+            if (ft == 0)
+              ft = ift;
+            else
+              ft = min(ft, ift);
+          }
+
+          ileg++;
+          if (Class->getLegType(ileg) != LTExtra)
+            break;
+        }
+      }
+      else if (par) {
+        ft = 0;
+        // Maximum over parallel legs
+        int ileg = leg;
+        while (ileg > 0 && Class->isParallel(ileg))
+          ileg--;
+
+        while (size_t(ileg) < Class->getNumStages()) {
+          int ift = 0;
+          if (Runners[ileg]) {
+            ift = Runners[ileg]->getFinishTimeAdjusted();
+          }
+
+          if (ift > 0) {
+            if (ft == 0)
+              ft = ift;
+            else
+              ft = max(ft, ift);
+          }
+
+          ileg++;
+          if (!Class->isParallel(ileg))
+            break;
+        }
+      }
+    }
+    return ft;
+  }
   else return 0;
 }
 
@@ -606,7 +666,7 @@ const string &oTeam::getLegStatusS(int leg, bool multidayTotal) const
 
 int oTeam::getLegPlace(int leg, bool multidayTotal) const {
   if (Class) {
-    while(leg> 0 && (Class->isParallel(leg) || Class->isOptional(leg)))
+    while(size_t(leg) < Class->legInfo.size() && Class->legInfo[leg].legMethod == LTIgnore)
       leg--;
   }
   if (!multidayTotal)
@@ -781,8 +841,19 @@ void oTeam::quickApply() {
   if (unsigned(status) >= 100)
     status = StatusUnknown; // Enforce valid
   
-  if (Class && Runners.size()!=size_t(Class->getNumStages()))
-    Runners.resize(Class->getNumStages());
+  if (Class && Runners.size()!=size_t(Class->getNumStages())) {
+    for (size_t k = Class->getNumStages(); k < Runners.size(); k++) {
+      if (Runners[k] && Runners[k]->tInTeam) {
+        Runners[k]->tInTeam = 0;
+        Runners[k]->tLeg = 0;
+        Runners[k]->tLegEquClass = 0;
+        if (Runners[k]->Class == Class)
+          Runners[k]->Class = 0;
+        Runners[k]->updateChanged();
+      }
+    }
+    Runners.resize(Class->getNumStages()); 
+  }
 
   for (size_t i = 0; i < Runners.size(); i++) {
     if (Runners[i]) {
@@ -1151,7 +1222,7 @@ bool oTeam::apply(bool sync, pRunner source, bool setTmpOnly) {
     else
       setStartTime(Runners[0]->getStartTime(), false, setTmpOnly);
   }
-  else if (Class)
+  else if (Class && Class->getStartType(0) != STDrawn)
     setStartTime(Class->getStartData(0), false, setTmpOnly);
 
   setFinishTime(getLegFinishTime(-1));
@@ -1330,6 +1401,10 @@ void oTeam::fillSpeakerObject(int leg, int courseControlId, int previousControlC
   if (firstLeg>=0) {
     timeOffset = getLegRunningTime(firstLeg, totalResult);
     inheritStatus = getLegStatus(firstLeg, totalResult);
+  }
+  else if (totalResult) {
+    timeOffset = getInputTime();
+    inheritStatus = getInputStatus();
   }
 
   speakerLegInfo(leg, specifiedLeg, courseControlId,
@@ -1866,7 +1941,10 @@ bool oTeam::inputData(int id, const string &input,
 
     case TID_START:
       setStartTimeS(input);
+      if (getRunner(0))
+        getRunner(0)->setStartTimeS(input);
       t=getStartTime();
+      apply(false, 0, false);
       s=getStartTime();
       if (s!=t)
         throw std::exception("Starttiden är definerad genom klassen eller löparens startstämpling.");
@@ -2052,9 +2130,9 @@ bool oTeam::checkValdParSetup() {
     return false;
   bool cor = false;
   for (size_t k = 0; k < Runners.size(); k++) {
-    if (!Class->isOptional(k) && !Runners[k]) {
+    if (!Class->isOptional(k) && !Class->isParallel(k) && !Runners[k]) {
       int m = 1;
-      while((m+k) < Runners.size() && Class->isOptional(k+m)) {
+      while((m+k) < Runners.size() && (Class->isOptional(k+m) || Class->isParallel(k+m))) {
         if (Runners[m+k]) {
           // Move to where a runner is needed
           Runners[k] = Runners[k+m];

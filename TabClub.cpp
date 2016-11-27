@@ -138,7 +138,12 @@ int TabClub::clubCB(gdioutput &gdi, int type, void *data)
         oe->calculateResults(oEvent::RTClassResult);
         oe->sortRunners(ClassStartTime);
         int pay, paid;
-        pc->generateInvoice(gdi, pay, paid);
+        {
+          map<int, int> ppm;
+          map<int, string> dpm;
+          oClub::definedPayModes(*oe, dpm);
+          pc->generateInvoice(gdi, pay, paid, dpm, ppm);
+        }
         gdi.addButton(gdi.getWidth()+20, 15, gdi.scaleLength(120),
                       "Cancel", "Återgå", ClubsCB, "", true, false);
         gdi.addButton(gdi.getWidth()+20, 45,  gdi.scaleLength(120),

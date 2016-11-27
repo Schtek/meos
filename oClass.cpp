@@ -4003,3 +4003,19 @@ void oClass::initClassId(oEvent &oe) {
     }
   }
 }
+
+int oClass::getNextBaseLeg(int leg) const {
+  for (size_t k = leg + 1; k  < legInfo.size(); k++) {
+    if (!(legInfo[k].isParallel() || legInfo[k].isOptional()))
+      return k;
+  }
+  return -1; // No next leg
+}
+
+int oClass::getPreceedingLeg(int leg) const {
+  for (int k = leg; k > 0; k--) {
+    if (!(legInfo[k].isParallel() || legInfo[k].isOptional()))
+      return k-1;
+  }
+  return -1;
+}

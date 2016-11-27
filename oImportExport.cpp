@@ -2386,7 +2386,8 @@ void oEvent::exportTeamSplits(xmlparser &xml, const set<int> &classes, bool oldS
 void oEvent::exportIOFSplits(IOFVersion version, const char *file,
                              bool oldStylePatrolExport, bool useUTC,
                              const set<int> &classes, int leg,
-                             bool teamsAsIndividual, bool unrollLoops) {
+                             bool teamsAsIndividual, bool unrollLoops,
+                             bool includeStageInfo) {
   xmlparser xml(gdibase.getEncoding() == ANSI ? 0 : &gdibase);
 
   xml.openOutput(file, false);
@@ -2403,14 +2404,15 @@ void oEvent::exportIOFSplits(IOFVersion version, const char *file,
     exportIOFResults(xml, true, classes, leg, oldStylePatrolExport);
   else {
     IOF30Interface writer(this);
-    writer.writeResultList(xml, classes, leg, useUTC, teamsAsIndividual, unrollLoops);
+    writer.writeResultList(xml, classes, leg, useUTC, 
+                           teamsAsIndividual, unrollLoops, includeStageInfo);
   }
 
   xml.closeOut();
 }
 
 void oEvent::exportIOFStartlist(IOFVersion version, const char *file, bool useUTC,
-                                const set<int> &classes, bool teamsAsIndividual) {
+                                const set<int> &classes, bool teamsAsIndividual, bool includeStageInfo) {
   xmlparser xml(gdibase.getEncoding() == ANSI ? 0 : &gdibase);
   
   oClass::initClassId(*this);
@@ -2420,7 +2422,7 @@ void oEvent::exportIOFStartlist(IOFVersion version, const char *file, bool useUT
     exportIOFStartlist(xml);
   else {
     IOF30Interface writer(this);
-    writer.writeStartList(xml, classes, useUTC, teamsAsIndividual);
+    writer.writeStartList(xml, classes, useUTC, teamsAsIndividual, includeStageInfo);
   }
   xml.closeOut();
 }

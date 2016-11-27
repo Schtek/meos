@@ -61,7 +61,7 @@ private:
   void initThread();
 
   bool httpSendReqEx(HINTERNET hConnect, const string &dest, const vector< pair<string, string> > &headers,
-                     const string &upFile, const string &outFile, ProgressWindow &pw) const;
+                     const string &upFile, const string &outFile, ProgressWindow &pw, int &errroCode) const;
 
 public:
 

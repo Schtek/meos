@@ -477,6 +477,9 @@ public:
 
   void pushDirectChange();
 
+  void getPayModes(vector< pair<string, size_t> > &modes);
+  void setPayMode(int id, const string &mode);
+
   bool hasDirectSocket() const {return directSocket != 0;}
   DirectSocket &getDirectSocket();
 
@@ -538,7 +541,7 @@ public:
 
 
   // Show an warning dialog if database is not sane
-  void sanityCheck(gdioutput &gdi, bool expectResult);
+  void sanityCheck(gdioutput &gdi, bool expectResult, int checkOnlyClass = -1);
 
   // Automatic draw of all classes
   void automaticDrawAll(gdioutput &gdi, const string &firstStart,
@@ -724,6 +727,33 @@ public:
   void optimizeStartOrder(vector< vector<pair<int, int> > > &StartField, DrawInfo &drawInfo,
                           vector<ClassInfo> &cInfo, int useNControls, int alteration);
 
+  struct ResultEvent {
+    ResultEvent() {}
+    ResultEvent(pRunner r, int time, int control, RunnerStatus status):
+        r(r), time(time), control(control), status(status), 
+        resultScore(0), place(-1), runTime(0), partialCount(0), legNumber(short(r->tLeg)) {}
+    
+    pRunner r;
+    int time;
+    int control;
+    RunnerStatus status;
+
+    int localIndex;
+    int resultScore;
+    int runTime;
+    unsigned short place;
+    /* By default zero. Used for parallel results etc.
+      -1 : Ignore
+      1,2,3 (how many runners are missing on the leg)
+    */
+    short partialCount;
+    short legNumber;
+
+    inline int classId() const {return r->getClassId();}
+    inline int leg() const {return legNumber;}
+  };
+
+  void getResultEvents(const set<int> &classFilter, const set<int> &controlFilter, vector<ResultEvent> &results) const;
 protected:
   // Returns hash key for punch based on control id, and leg. Class is marked as changed if oldHashKey != newHashKey.
   int getControlIdFromPunch(int time, int type, int card,
@@ -825,11 +855,13 @@ public:
                        const set<int> &classes,
                        int leg,
                        bool teamsAsIndividual,
-                       bool unrollLoops);
+                       bool unrollLoops,
+                       bool includeStageData);
 
   void exportIOFStartlist(IOFVersion version, const char *file,
                           bool useUTC, const set<int> &classes,
-                          bool teamsAsIndividual);
+                          bool teamsAsIndividual,
+                          bool includeStageInfo);
 
   bool exportOECSV(const char *file);
   bool save();
@@ -1147,7 +1179,7 @@ protected:
 public:
 
   GeneralResult &getGeneralResult(const string &tag, string &sourceFileOut) const;
-  void getGeneralResults(bool onlyEditable, vector< pair<string, string> > &tagNameList, bool includeDateInName) const;
+  void getGeneralResults(bool onlyEditable, vector< pair<int, pair<string, string> > > &tagNameList, bool includeDateInName) const;
   void loadGeneralResults(bool forceReload) const;
 
   void getPredefinedClassTypes(map<string, ClassMetaType> &types) const;
@@ -1198,8 +1230,8 @@ public:
   /** Check that all necessary features are present, (fix by adding features)*/
   void checkNecessaryFeatures();
 
-  /**Return false if card is not used*/
-  bool checkCardUsed(gdioutput &gdi, int CardNo);
+  /** Show dialog and return false if card is not used. */
+  bool checkCardUsed(gdioutput &gdi, oRunner &runnerToAssignCard, int CardNo);
 
   void analyseDNS(vector<pRunner> &unknown_dns, vector<pRunner> &known_dns,
                   vector<pRunner> &known, vector<pRunner> &unknown);

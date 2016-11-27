@@ -23,13 +23,22 @@
 #include "tabbase.h"
 #include "SportIdent.h"
 #include "Printer.h"
+#include "inthashmap.h"
 
 struct PunchInfo;
 class csvparser;
 
-class TabSI :
-  public TabBase
-{
+class TabSI :  public TabBase {
+  public:
+    enum SIMode {
+    ModeReadOut,
+    ModeAssignCards,
+    ModeCheckCards,
+    ModeEntry,
+    ModeCardData
+  };
+
+private:
   /** Try to automatcally assign a class to runner (if none is given)
       Return true if runner has a class on exist */
   bool autoAssignClass(pRunner r, const SICard &sic);
@@ -57,13 +66,6 @@ class TabSI :
   vector<SICard> cards;
   vector<string> filterDate;
 
-  enum SIMode {
-    ModeReadOut,
-    ModeAssignCards,
-    ModeEntry,
-    ModeCardData
-  };
-
   int runnerMatchedId;
 
   //Interactive card assign
@@ -79,6 +81,33 @@ class TabSI :
   int lastClubId;
   string lastFee;
   int inputId;
+
+  void showCheckCardStatus(gdioutput &gdi, const string &cmd);
+  
+  string getCardInfo(bool param, vector<int> &count) const;
+  // Formatting for card tick off
+  bool checkHeader;
+  int cardPosX;
+  int cardPosY;
+  int cardOffsetX;
+  int cardNumCol;
+  int cardCurrentCol;
+
+  enum CardNumberFlags {
+    // Basic flags
+    CNFChecked = 1,
+    CNFUsed = 2,
+    CNFNotRented = 4,
+
+    // Combinations
+    CNFCheckedAndUsed = 3,
+    CNFCheckedNotRented = 5,
+    CNFRentAndNotRent = 6,
+    CNFCheckedRentAndNotRent = 7,
+  };
+
+  map<int, CardNumberFlags> checkedCardFlags;
+  void checkCard(gdioutput &gdi, const SICard &sic, bool updateAll);
 
   void showReadPunches(gdioutput &gdi, vector<PunchInfo> &punches, set<string> &dates);
   void showReadCards(gdioutput &gdi, vector<SICard> &cards);
@@ -137,7 +166,7 @@ protected:
   void clearCompetitionData();
 
 public:
-
+  
   struct StoredStartInfo {
     string storedName;
     string storedCardNo;
@@ -148,15 +177,18 @@ public:
     bool allStages;
     bool rentState;
     bool hasPaid;
+    int payMode;
     DWORD age;
     int storedClassId;
 
     void clear();
     void checkAge();
-    StoredStartInfo() : rentState(false), age(0), storedClassId(0), hasPaid(0), allStages(false) {}
+    StoredStartInfo() : rentState(false), age(0), storedClassId(0), hasPaid(0), payMode(0), allStages(false) {}
   };
 
   StoredStartInfo storedInfo;
+  void generatePayModeWidget(gdioutput &gdi) const;
+  static bool writePayMode(gdioutput &gdi, int amount, oRunner &r);
 
   static SportIdent &getSI(const gdioutput &gdi);
   void printerSetup(gdioutput &gdi);

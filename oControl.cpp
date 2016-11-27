@@ -498,7 +498,7 @@ int oControl::getRogainingPoints() const
 string oControl::getRogainingPointsS() const
 {
   int pt = getRogainingPoints();
-  return pt > 0 ? itos(pt) : "";
+  return pt != 0 ? itos(pt) : "";
 }
 
 void oControl::setTimeAdjust(int v)
@@ -540,8 +540,6 @@ void oControl::setMinTime(const string &s)
 
 void oControl::setRogainingPoints(int v)
 {
-  if (v<0)
-    v = 0;
   getDI().setInt("Rogaining", v);
 }
 

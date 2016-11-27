@@ -281,7 +281,7 @@ public:
   void dbPushDialogAnswer(const string &answer);
   mutable list<string> cmdAnswers;
 
-  int dbGetStringCount(const string &str) const;
+  int dbGetStringCount(const string &str, bool subString) const;
 
   // Ensure list of stored answers is empty
   void clearDialogAnswers(bool checkEmpty);
@@ -398,6 +398,9 @@ public:
   bool clipOffset(int PageX, int PageY, int &MaxOffsetX, int &MaxOffsetY);
   RectangleInfo &addRectangle(RECT &rc, GDICOLOR Color = GDICOLOR(-1),
                               bool DrawBorder = true, bool addFirst = false);
+  
+  RectangleInfo &getRectangle(const char *id);
+  
   DWORD makeEvent(const string &id, const string &origin,
                   DWORD data, int extraData, bool flushEvent);
 
@@ -492,7 +495,7 @@ public:
   bool getData(const string &id, DWORD &data) const;
   bool hasData(const char *id) const;
 
-  
+  int getItemDataByName(const char *id, const char *name) const;
   bool selectItemByData(const char *id, int data);
   void removeSelected(const char *id);
 
@@ -607,8 +610,8 @@ public:
 
   ListBoxInfo &addCombo(const string &id, int width, int height, GUICALLBACK cb=0, const string &Explanation="", const string &tooltip="");
   ListBoxInfo &addCombo(int x, int y, const string &id, int width, int height, GUICALLBACK cb=0, const string &Explanation="", const string &tooltip="");
-  // Grows a listbox, selection, combo in X-direction to fit current contents
-  void autoGrow(const char *id);
+  // Grows a listbox, selection, combo in X-direction to fit current contents. Returns true if changed.
+  bool autoGrow(const char *id);
 
   void setListDescription(const string &desc);
 

@@ -332,6 +332,7 @@ void TabRunner::selectRunner(gdioutput &gdi, pRunner r) {
     pcourse->synchronize();
     gdi.setTabStops("Course", 50);
     pcourse->fillCourse(gdi, "Course");
+    autoGrowCourse(gdi);
     gdi.enableInput("AddAllC");
   }
   else {
@@ -984,7 +985,7 @@ int TabRunner::runnerCB(gdioutput &gdi, int type, void *data)
 
       if (!card) return 0;
 
-      card->deletePunch(pPunch(lbi.data));
+      card->deletePunch(card->getPunchByIndex(lbi.data));
       card->synchronize();
       //Update runner
       vector<int> mp;
@@ -1072,6 +1073,7 @@ int TabRunner::runnerCB(gdioutput &gdi, int type, void *data)
         string crsName;
         if (crsToUse) {
           crsToUse->fillCourse(gdi, "Course");
+          autoGrowCourse(gdi);
           crsName = crsToUse->getName() + " ";
         }
         else {
@@ -1116,6 +1118,7 @@ int TabRunner::runnerCB(gdioutput &gdi, int type, void *data)
       }
       if (crsToUse) {
         crsToUse->fillCourse(gdi, "Course");
+        autoGrowCourse(gdi);
         updateNumShort(gdi, crsToUse, r);
       }
     }
@@ -1285,7 +1288,7 @@ int TabRunner::vacancyCB(gdioutput &gdi, int type, void *data)
 
     int cardNo = gdi.getTextNo("CardNo");
 
-    if (cardNo!=r->getCardNo() && oe->checkCardUsed(gdi, cardNo))
+    if (cardNo!=r->getCardNo() && oe->checkCardUsed(gdi, *r, cardNo))
       return 0;
 
     string club = gdi.getText("Club");
@@ -1325,12 +1328,12 @@ int TabRunner::vacancyCB(gdioutput &gdi, int type, void *data)
       r->getDI().setInt("CardFee", 0);
 
 
-    if (gdi.isChecked("Paid")) {
-      if (cardFee < 0)
-        cardFee = 0;
-      fee = r->getDCI().getInt("Fee");
-      r->getDI().setInt("Paid", fee + cardFee);
-    }
+    
+    if (cardFee < 0)
+      cardFee = 0;
+    fee = r->getDCI().getInt("Fee");
+    
+    TabSI::writePayMode(gdi, fee + cardFee, *r);  
 
     if (gdi.hasField("AllStages")) {
       r->setFlag(oRunner::FlagTransferSpecified, true);
@@ -1384,7 +1387,7 @@ int TabRunner::vacancyCB(gdioutput &gdi, int type, void *data)
     tsi.storedInfo.allStages = gdi.isChecked("AllStages");
     tsi.storedInfo.rentState = gdi.isChecked("RentCard");
     tsi.storedInfo.hasPaid = gdi.isChecked("Paid");
-
+    tsi.storedInfo.payMode =  gdi.hasField("PayMode") ? gdi.getSelectedItem("PayMode").first : 0;
     return 1;
   }
   return 0;
@@ -1836,7 +1839,9 @@ void TabRunner::showVacancyList(gdioutput &gdi, const string &method, int classI
         gdi.selectFirstItem("Fee");
       }
       gdi.dropLine(1.2);
-      gdi.addCheckbox("Paid", "Kontant betalning", 0, tsi.storedInfo.hasPaid);
+
+      //gdi.addCheckbox("Paid", "Kontant betalning", 0, tsi.storedInfo.hasPaid);
+      tsi.generatePayModeWidget(gdi);
       gdi.dropLine(-0.2);
     }
     else {
@@ -2100,11 +2105,12 @@ int TabRunner::punchesCB(gdioutput &gdi, int type, void *data)
     ListBoxInfo bi=*(ListBoxInfo *)data;
 
     if (bi.id=="Punches") {
-      if (bi.data) {
-        pPunch punch = pPunch(bi.data);
+      if (bi.data != -1) {
         pCard card=r->getCard();
-
         if (!card) return 0;
+        pPunch punch = card->getPunchByIndex(bi.data);
+        if (!punch) 
+          throw meosException("Punch not found.");
 
         string ptime=punch->getTime();//;card->getPunchTime(punch);
 
@@ -2221,7 +2227,10 @@ int TabRunner::punchesCB(gdioutput &gdi, int type, void *data)
 
       if (!pc) return 0;
 
-      pPunch pp = pPunch(lbi.data);
+      pPunch pp = pc->getPunchByIndex(lbi.data);
+      
+      if (!pp)
+        throw meosException("Punch not found.");
 
       pc->setPunchTime(pp, gdi.getText("PTime"));
 
@@ -2234,7 +2243,7 @@ int TabRunner::punchesCB(gdioutput &gdi, int type, void *data)
       r->evaluateCard(true, mp);
       card->fillPunches(gdi, "Punches", r->getCourse(true));
       UpdateStatus(gdi, r);
-      gdi.selectItemByData("Punches", size_t(pp));
+      gdi.selectItemByData("Punches", lbi.data);
     }
   }
   return 0;
@@ -2490,7 +2499,7 @@ bool TabRunner::loadPage(gdioutput &gdi)
   gdi.setCX(hx + gdi.scaleLength(5));
 
   gdi.dropLine(2.5);
-  gdi.addListBox("Punches", 140, 300, PunchesCB, "Stämplingar:").ignore(true);
+  gdi.addListBox("Punches", 150, 300, PunchesCB, "Stämplingar:").ignore(true);
   gdi.addButton("RemoveC", "Ta bort stämpling >>", RunnerCB);
 
   gdi.pushX();
@@ -2534,7 +2543,7 @@ bool TabRunner::loadPage(gdioutput &gdi)
   int bx = gdi.getWidth();
   RECT box = {hx-gdi.scaleLength(5), hy, bx + gdi.scaleLength(5), by};
   gdi.addString("", hy + gdi.scaleLength(5), hx + gdi.scaleLength(5), fontMediumPlus, "Brickhantering");
-  gdi.addRectangle(box, colorLightBlue, true, false).set3D(true);
+  gdi.addRectangle(box, colorLightBlue, true, false).set3D(true).id = "CardRect";
 
   gdi.fillDown();
   gdi.setCY(gdi.getHeight());
@@ -2721,4 +2730,15 @@ void TabRunner::clearCompetitionData() {
   timeToFill = 0;
   ownWindow = false;
   listenToPunches = false;
+}
+
+void TabRunner::autoGrowCourse(gdioutput &gdi) {
+  ListBoxInfo &crsCtrl = dynamic_cast<ListBoxInfo &>(gdi.getBaseInfo("Course"));
+  int wInit = crsCtrl.getWidth();
+  if (gdi.autoGrow("Course")) {
+    RectangleInfo &rc = gdi.getRectangle("CardRect");
+    int wAfter = crsCtrl.getWidth();
+    rc.changeDimension(gdi, wAfter - wInit, 0);
+    gdi.refresh();
+  }
 }

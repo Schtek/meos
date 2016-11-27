@@ -292,8 +292,9 @@ void Download::postFile(const string &url, const string &file, const string &fil
   HINTERNET hConnect = InternetConnect(hInternet, host, port,
                                        NULL, NULL, INTERNET_SERVICE_HTTP, 0, dw);
   bool success = false;
+  int errorCode = 0;
   try {
-    success = httpSendReqEx(hConnect, path, headers, file, fileOut, pw);
+    success = httpSendReqEx(hConnect, path, headers, file, fileOut, pw, errorCode);
   }
   catch (std::exception &) {
     InternetCloseHandle(hConnect);
@@ -302,9 +303,10 @@ void Download::postFile(const string &url, const string &file, const string &fil
   InternetCloseHandle(hConnect);
 
   if (!success) {
-    DWORD ec = GetLastError();
+    if (errorCode != 0)
+      errorCode = GetLastError();
 
-    string error = ec != 0 ? getErrorMessage(ec) : "";
+    string error = errorCode != 0 ? getErrorMessage(errorCode) : "";
     if (error.empty())
       error = "Ett okänt fel inträffade.";
     throw std::exception(error.c_str());
@@ -313,7 +315,10 @@ void Download::postFile(const string &url, const string &file, const string &fil
 
 bool Download::httpSendReqEx(HINTERNET hConnect, const string &dest,
                              const vector< pair<string, string> > &headers,
-                             const string &upFile, const string &outFile, ProgressWindow &pw) const {
+                             const string &upFile, const string &outFile, 
+                             ProgressWindow &pw, 
+                             int &errorCode) const {
+  errorCode = 0;
   INTERNET_BUFFERS BufferIn;
   memset(&BufferIn, 0, sizeof(BufferIn));
   BufferIn.dwStructSize = sizeof( INTERNET_BUFFERS );
@@ -356,6 +361,7 @@ bool Download::httpSendReqEx(HINTERNET hConnect, const string &dest,
     DWORD sum = 0;
     do {
       if (!ReadFile (hFile, pBuffer, sizeof(pBuffer), &dwBytesRead, NULL)) {
+        errorCode = GetLastError();
         CloseHandle(hFile);
         InternetCloseHandle(hRequest);
         return false;
@@ -363,6 +369,7 @@ bool Download::httpSendReqEx(HINTERNET hConnect, const string &dest,
 
       if (dwBytesRead > 0) {
         if (!InternetWriteFile(hRequest, pBuffer, dwBytesRead, &dwBytesWritten)) {
+          errorCode = GetLastError();
           CloseHandle(hFile);
           InternetCloseHandle(hRequest);
           return false;
@@ -385,6 +392,7 @@ bool Download::httpSendReqEx(HINTERNET hConnect, const string &dest,
 
     if (!HttpEndRequest(hRequest, NULL, 0, 0)) {
       DWORD error = GetLastError();
+      errorCode = error;
       if (error == ERROR_INTERNET_FORCE_RETRY)
         retry--;
       else if (error == ERROR_INTERNET_TIMEOUT) {

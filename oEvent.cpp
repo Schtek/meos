@@ -244,7 +244,8 @@ oEvent::oEvent(gdioutput &gdi):oBase(0), gdibase(gdi)
   oEventData->addVariableInt("NumStages", oDataContainer::oIS8, "Antal etapper");
   oEventData->addVariableInt("BibGap", oDataContainer::oIS8U, "Nummerlappshopp");
   oEventData->addVariableInt("LongTimes", oDataContainer::oIS8U, "Långa tider");
-
+  oEventData->addVariableString("PayModes", "Betalsätt");
+  
   oEventData->initData(this, dataSize);
 
   oClubData=new oDataContainer(oClub::dataSize);
@@ -275,8 +276,8 @@ oEvent::oEvent(gdioutput &gdi):oBase(0), gdibase(gdi)
   oRunnerData->addVariableCurrency("Fee", "Anm. avgift");
   oRunnerData->addVariableCurrency("CardFee", "Brickhyra");
   oRunnerData->addVariableCurrency("Paid", "Betalat");
+  oRunnerData->addVariableInt("PayMode", oDataContainer::oIS8U, "Betalsätt");
   oRunnerData->addVariableCurrency("Taxable", "Skattad avgift");
-
   oRunnerData->addVariableInt("BirthYear", oDataContainer::oIS32, "Födelseår");
   oRunnerData->addVariableString("Bib", 8, "Nummerlapp").zeroSortPadding = 5;
   oRunnerData->addVariableInt("Rank", oDataContainer::oIS16U, "Ranking");
@@ -390,6 +391,7 @@ oEvent::oEvent(gdioutput &gdi):oBase(0), gdibase(gdi)
   oTeamData = new oDataContainer(oTeam::dataSize);
   oTeamData->addVariableCurrency("Fee", "Anm. avgift");
   oTeamData->addVariableCurrency("Paid", "Betalat");
+  oTeamData->addVariableInt("PayMode", oDataContainer::oIS8U, "Betalsätt");
   oTeamData->addVariableCurrency("Taxable", "Skattad avgift");
   oTeamData->addVariableDate("EntryDate", "Anm. datum");
   oTeamData->addVariableString("Nationality", 3, "Nationalitet");
@@ -403,8 +405,8 @@ oEvent::oEvent(gdioutput &gdi):oBase(0), gdibase(gdi)
   oTeamData->addVariableInt("TransferFlags", oDataContainer::oIS32, "Överföring");
   oTeamData->addVariableInt("EntrySource", oDataContainer::oIS32, "Källa");
 
-  generalResults.push_back(GeneralResultCtr("atcontrol", lang.tl("Result at a control"), new ResultAtControl()));
-  generalResults.push_back(GeneralResultCtr("totatcontrol", lang.tl("Total/team result at a control"), new TotalResultAtControl()));
+  generalResults.push_back(GeneralResultCtr("atcontrol", "Result at a control", new ResultAtControl()));
+  generalResults.push_back(GeneralResultCtr("totatcontrol", "Total/team result at a control", new TotalResultAtControl()));
 
   currentClientCS = 0;
   memset(CurrentFile, 0, sizeof(CurrentFile));
@@ -1528,7 +1530,7 @@ pRunner oEvent::addRunner(const string &name, int clubId, int classId,
     db_r = 0; // "Existing" card, but different runner
 
 
-  if (db_r == 0)
+  if (db_r == 0 && getNumberSuffix(name) == 0)
     db_r = oe->dbLookUpByName(name, clubId, classId, birthYear);
 
   if (db_r) {
@@ -1551,6 +1553,10 @@ pRunner oEvent::addRunner(const string &name, int clubId, int classId,
   if (birthYear>0)
     r.setBirthYear(birthYear);
   pRunner pr = addRunner(r, true);
+  
+  if (pr->getDI().getInt("EntryDate") == 0)
+    pr->getDI().setDate("EntryDate", getLocalDate());
+
   pr->updateChanged();
 
   if (autoAdd)
@@ -1586,6 +1592,9 @@ pRunner oEvent::addRunnerFromDB(const pRunner db_r,
   memcpy(r.oData, db_r->oData, sizeof(r.oData));
 
   pRunner pr = addRunner(r, true);
+  if (pr->getDI().getInt("EntryDate") == 0)
+    pr->getDI().setDate("EntryDate", getLocalDate());
+
   pr->updateChanged();
 
   if (autoAdd)
@@ -1869,8 +1878,9 @@ bool oEvent::sortTeams(SortOrder so, int leg, bool linearLeg) {
   reinitializeClasses();
   oTeamList::iterator it;
   map<int, int> classId2Linear;
-  if (so==ClassResult || so==ClassTotalResult) {
-    bool totalResult = so==ClassTotalResult;
+  if (so==ClassResult || so==ClassTotalResult || so == ClassTeamLegResult) {
+    bool totalResult = so == ClassTotalResult;
+    bool legResult = so == ClassTeamLegResult;
     bool hasRunner = (leg == -1);
     for (it=Teams.begin(); it != Teams.end(); ++it) {
       int lg = leg;
@@ -1901,14 +1911,28 @@ bool oEvent::sortTeams(SortOrder so, int leg, bool linearLeg) {
       
       if (lg >= leg)
         hasRunner = true;
+      if (legResult) {
+        pRunner r = it->getRunner(lg);
+        if (r) {
+          it->_sortTime = r->getRunningTime();
+          it->_cachedStatus = r->getStatus();
+        }
+        else {
+          it->_sortTime = 0;
+          it->_cachedStatus = StatusUnknown;
+        }
+      }
+      else {
+        it->_sortTime=it->getLegRunningTime(lg, totalResult) + it->getNumShortening(lg)*3600*24*10;
+        it->_cachedStatus = it->getLegStatus(lg, totalResult);
 
-      unsigned rawStatus = it->_cachedStatus = it->getLegStatus(lg, totalResult);
+        // Ensure number of restarts has effect on final result
+        if (lg == lastIndex)
+          it->_sortTime += it->tNumRestarts*24*3600;
+      }
+      unsigned rawStatus = it->_cachedStatus; 
       it->_sortStatus = RunnerStatusOrderMap[rawStatus < 100u ? rawStatus : 0];
-      it->_sortTime=it->getLegRunningTime(lg, totalResult) + it->getNumShortening(lg)*3600*24*10;
-
-      // Ensure number of restarts has effect on final result
-      if (lg == lastIndex)
-        it->_sortTime += it->tNumRestarts*24*3600;
+     
     }
 
     if (!hasRunner)
@@ -3599,22 +3623,10 @@ void oEvent::newCompetition(const string &name)
   getDI().setString("CurrencySeparator", getPropertyString("CurrencySeparator", "."));
   getDI().setInt("CurrencyFactor", getPropertyInt("CurrencyFactor", 1));
   getDI().setInt("CurrencyPreSymbol", getPropertyInt("CurrencyPreSymbol", 0));
+  getDI().setString("PayModes", getPropertyString("PayModes", ""));
 
   setCurrency(-1, "", "", 0);
-/*  FILETIME ft;
-  SystemTimeToFileTime(&st, &ft);
-  __int64 &ft64 = *(__int64 *)&ft;
-  ft64 -= (__int64)1000 * 60 *60 * 24 *7 * 1000 * 10;
 
-  SYSTEMTIME st_week;
-  FileTimeToSystemTime(&ft, &st_week);
-  char entryDate[32];
-  sprintf_s(entryDate, "%d-%02d-%02d", st_week.wYear,
-                                       st_week.wMonth,
-                                       st_week.wDay);
-
-  getDI().setDate("OrdinaryEntry", entryDate);
-*/
   char file[260];
   char filename[64];
   sprintf_s(filename, 64, "meos_%d%02d%02d_%02d%02d%02d_%X.meos",
@@ -4453,7 +4465,7 @@ const vector< pair<string, size_t> > &oEvent::fillStatus(vector< pair<string, si
 {
   out.clear();
   out.push_back(make_pair(lang.tl("-"), StatusUnknown));
-  out.push_back(make_pair(lang.tl("OK"), StatusOK));
+  out.push_back(make_pair(lang.tl("Godkänd"), StatusOK));
   out.push_back(make_pair(lang.tl("Ej start"), StatusDNS));
   out.push_back(make_pair(lang.tl("Felst."), StatusMP));
   out.push_back(make_pair(lang.tl("Utg."), StatusDNF));
@@ -4665,7 +4677,7 @@ void oEvent::calcUseStartSeconds()
 
 const string &oEvent::formatStatus(RunnerStatus status)
 {
-  const static string stats[8]={"?", "OK", "Ej start", "Felst.", "Utg.", "Disk.", "Maxtid", "Deltar ej"};
+  const static string stats[8]={"?", "Godkänd", "Ej start", "Felst.", "Utg.", "Disk.", "Maxtid", "Deltar ej"};
   switch(status) {
   case StatusOK:
     return lang.tl(stats[1]);
@@ -5376,8 +5388,7 @@ void oEvent::useRunnerDb(bool use) {
   getDI().setInt("SkipRunnerDb", use ? 0 : 1);
 }*/
 
-bool oEvent::hasMultiRunner() const
-{
+bool oEvent::hasMultiRunner() const {
   for (oClassList::const_iterator it = Classes.begin(); it!=Classes.end(); ++it) {
     if (it->hasMultiCourse() && it->getNumDistinctRunners() != it->getNumStages())
       return true;
@@ -5386,16 +5397,24 @@ bool oEvent::hasMultiRunner() const
   return false;
 }
 
-/**Return false if card is not used*/
-bool oEvent::checkCardUsed(gdioutput &gdi, int cardNo)
-{
-  oe->synchronizeList(oLRunnerId);
-  pRunner pold=oe->getRunnerByCardNo(cardNo, 0, true, true);
+/** Return false if card is not used */
+bool oEvent::checkCardUsed(gdioutput &gdi, oRunner &runnerToAssignCard, int cardNo) {
+  synchronizeList(oLRunnerId);
+  //pRunner pold=oe->getRunnerByCardNo(cardNo, 0, true, true);
   char bf[1024];
+  pRunner pold = 0;
+  for (oRunnerList::iterator it = Runners.begin(); it != Runners.end(); ++it) {
+    if (it->skip())
+      continue;
+    if (!runnerToAssignCard.canShareCard(&*it, cardNo)) {
+      pold = &*it;
+      break;
+    }
+  }
 
   if (pold) {
     sprintf_s(bf, ("#" + lang.tl("Bricka %d används redan av %s och kan inte tilldelas.")).c_str(),
-                  cardNo, pold->getName().c_str());
+                  cardNo, pold->getCompleteIdentification().c_str());
     gdi.alert(bf);
     return true;
   }
@@ -5420,7 +5439,7 @@ void oEvent::removeVacanies(int classId) {
   removeRunner(toRemove);
 }
 
-void oEvent::sanityCheck(gdioutput &gdi, bool expectResult) {
+void oEvent::sanityCheck(gdioutput &gdi, bool expectResult, int onlyThisClass) {
   bool hasResult = false;
   bool warnNoName = false;
   bool warnNoClass = false;
@@ -5430,6 +5449,8 @@ void oEvent::sanityCheck(gdioutput &gdi, bool expectResult) {
 
   for (oRunnerList::iterator it = Runners.begin(); it!=Runners.end(); ++it) {
     if (it->isRemoved())
+      continue;
+    if (onlyThisClass > 0 && it->getClassId() != onlyThisClass)
       continue;
     if (it->Name.empty()) {
       if (!warnNoName) {
@@ -5480,6 +5501,9 @@ void oEvent::sanityCheck(gdioutput &gdi, bool expectResult) {
   for (oTeamList::iterator it = Teams.begin(); it != Teams.end(); ++it) {
     if (it->isRemoved())
       continue;
+    
+    if (onlyThisClass > 0 && it->getClassId() != onlyThisClass)
+      continue;
 
     if (it->Name.empty()) {
       if (!warnNoName) {
@@ -5521,6 +5545,10 @@ void oEvent::sanityCheck(gdioutput &gdi, bool expectResult) {
       continue;
     if (it->getClassStatus() != oClass::Normal)
       continue;
+
+    if (onlyThisClass > 0 && it->getId() != onlyThisClass)
+      continue;
+
     if (it->hasMultiCourse()) {
       for (unsigned k=0;k<it->getNumStages(); k++) {
         StartTypes st = it->getStartType(k);
@@ -6510,5 +6538,73 @@ int oEvent::convertToFullTime(int inTime) {
     return inTime;
 
   return inTime;
+}
+
+
+void oEvent::getPayModes(vector< pair<string, size_t> > &modes) {
+  modes.clear();
+  modes.reserve(10);
+  vector< pair<string, int> > lines;
+  getExtraLines("PayModes", lines);
+  
+  modes.push_back(make_pair(lang.tl("Kontant betalning"), 0));
+  map<int,int> id2ix;
+  id2ix[0] = 0;
+  
+  for (size_t k = 0; k < lines.size(); k++) {
+    int id = lines[k].second;
+    if (id2ix.count(id))
+      modes[id2ix[id]].first = lines[k].first;
+    else {
+      id2ix[id] = k;
+      modes.push_back(make_pair(lines[k].first, id));
+    }
+  }
+}
+
+void oEvent::setPayMode(int id, const string &mode) {
+  vector< pair<string, int> > lines;
+  getExtraLines("PayModes", lines);
+  
+  if (mode.empty()) {
+    // Remove
+    for (size_t k = 0; k < lines.size(); k++) {
+      if (lines[k].second == id) {
+        bool valid = id != 0;
+        for (oRunnerList::const_iterator it = Runners.begin(); 
+                               valid && it != Runners.end(); ++it) {
+          if (it->getPaymentMode() == id)
+            valid = false;
+        }
+        for (oTeamList::const_iterator it = Teams.begin(); 
+                               valid && it != Teams.end(); ++it) {
+          if (it->getPaymentMode() == id)
+            valid = false;
+        }
+
+        if (!valid)
+          throw meosException("Betalningsättet behövs och kan inte tas bort.");
+
+        lines.erase(lines.begin() + k);
+        k--;
+      }
+    }
+  }
+  else {
+    // Add / update
+    bool done = false;
+    for (size_t k = 0; k < lines.size(); k++) {
+      if (lines[k].second == id) {
+        lines[k].first = mode;
+        done = true;
+        break;
+      }
+    }
+    if (!done) {
+      lines.push_back(make_pair(mode, id));
+    }
+  }
+
+  setExtraLines("PayModes", lines);
 }
 

@@ -26,6 +26,7 @@
 #include <set>
 #include <cassert>
 #include <algorithm>
+#include <deque>
 
 #include "oEvent.h"
 #include "gdioutput.h"
@@ -410,26 +411,52 @@ void oEvent::generatePreReport(gdioutput &gdi) {
       no_course.push_back(&*r_it);
   }
 
-  list<pRunner> si_duplicate;
+  deque<pRunner> si_duplicate;
 
   if (Runners.size()>1){
     Runners.sort(oRunner::CompareSINumber);
+    map<int, vector<pRunner> > initDup;
 
     r_it=Runners.begin();
     while (++r_it != Runners.end()){
       oRunnerList::iterator r_it2=r_it;
       r_it2--;
+      int cno = r_it->getCardNo();
+      if (cno && r_it2->getCardNo() == cno){
+        vector<pRunner> &sid = initDup[cno];
+        if (sid.empty() || sid.back()->getId()!=r_it2->getId())
+          sid.push_back(&*r_it2);
 
-      if (r_it2->getCardNo() && r_it2->getCardNo()==r_it->getCardNo()){
-
-        if (si_duplicate.size()==0 || si_duplicate.back()->getId()!=r_it2->getId())
-          si_duplicate.push_back(&*r_it2);
-
-        si_duplicate.push_back(&*r_it);
+        sid.push_back(&*r_it);
       }
     }
-  }
 
+    for(map<int, vector<pRunner> >::const_iterator it = initDup.begin(); it != initDup.end(); ++it) {
+      const vector<pRunner> &eq = it->second;
+      vector<char> added(eq.size());
+      for (size_t k = 0; k < eq.size(); k++) {
+        if (added[k])
+          continue;
+
+        for (size_t j = 0; j < eq.size(); j++) {
+          if (j == k)
+            continue;
+          if (!eq[k]->canShareCard(eq[j], eq[k]->getCardNo())) {
+            if (!added[k]) {
+              si_duplicate.push_back(eq[k]);
+              added[k] = 1;
+            }
+            if (!added[j]) {
+              si_duplicate.push_back(eq[j]);
+              added[j] = 1;
+            }
+          }
+        }
+      }
+    }
+
+  }
+  
   const string Ellipsis="[ ... ]";
 
   sprintf_s(bf, lang.tl("Löpare utan klass: %d.").c_str(), no_class.size());
@@ -526,18 +553,33 @@ void oEvent::generatePreReport(gdioutput &gdi) {
   if (!si_duplicate.empty()) gdi.addStringUT(1, Ellipsis);
 
   if (useLongTimes()) { // Warn SICard5 + long times
+    bool header = false;
+
+    i = 0;
     for (r_it = Runners.begin(); r_it != Runners.end(); ++r_it) {
+      pRunner r = &(*r_it);
       if (r_it->isRemoved())
         continue;
-/*      if (r_it->getCardNo() > 0 && r_it->getCardNo() < 300000) {
-          string name = r->getClass() + " / " + r->getName();
-      if (!r->getClub().empty())
-        name += " ("+r->getClub()+")";
-      name += ": " + itos(r->getCardNo());
-      gdi.addStringUT(0, name);
-*/
-      }
+      if (r_it->getCardNo() > 0 && r_it->getCardNo() < 300000) {
+        if (!header) {
+          gdi.dropLine();
+          sprintf_s(bf, lang.tl("Gamla brickor utan stöd för långa tider").c_str(), si_duplicate.size());
+          gdi.addStringUT(1, bf);
+          header = true;
+        }
+        
+        string name = r->getClass() + " / " + r->getName();
+        if (!r->getClub().empty())
+          name += " ("+r->getClub()+")";
+        name += ": " + itos(r->getCardNo());
+        gdi.addStringUT(0, name);
 
+        if (++i > 5) {
+          gdi.addStringUT(1, Ellipsis);
+          break;
+        }
+      }
+    }
   }
 
   // Clear markers

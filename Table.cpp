@@ -32,6 +32,7 @@
 #include <cassert>
 #include "gdiconstants.h"
 #include "meosexception.h"
+#include "recorder.h"
 
 extern HINSTANCE hInst;
 const char *tId="_TABLE_SEL";
@@ -839,6 +840,7 @@ bool Table::destroyEditControl(gdioutput &gdi) {
 }
 
 bool Table::mouseLeftDown(gdioutput &gdi, int x, int y) {
+  partialCell = true;
   clearCellSelection(&gdi);
 
   if (!destroyEditControl(gdi))
@@ -1577,6 +1579,23 @@ bool Table::tabFocus(gdioutput &gdi, int direction)
   return false;
 }
 
+void Table::setTableText(gdioutput &gdi, int editRow, int editCol, const string &bf) {
+  if (size_t(editRow) >= Data.size() || size_t(editCol) >= Data[editRow].cells.size())
+    throw std::exception("Index out of bounds");
+
+  string output;
+  TableCell &cell=Data[editRow].cells[editCol];
+  cell.owner->inputData(cell.id, bf, 0, output, false);
+  cell.contents=output;
+  if (hEdit != 0)
+    DestroyWindow(hEdit);
+  hEdit=0;
+  reloadRow(Data[editRow].id);
+  RECT rc;
+  getRowRect(editRow, rc);
+  InvalidateRect(gdi.getTarget(), &rc, false);
+}
+
 bool Table::enter(gdioutput &gdi)
 {
   if (hEdit) {
@@ -1585,19 +1604,13 @@ bool Table::enter(gdioutput &gdi)
       GetWindowText(hEdit, bf, 1024);
 
       if (editRow>=2) {
-        TableCell &cell=Data[editRow].cells[editCol];
-        string output;
-
-        //try
+        
         {
-          cell.owner->inputData(cell.id, bf, 0, output, false);
-          cell.contents=output;
-          DestroyWindow(hEdit);
-          hEdit=0;
-          reloadRow(Data[editRow].id);
-          RECT rc;
-          getRowRect(editRow, rc);
-          InvalidateRect(gdi.getTarget(), &rc, false);
+          string cmd;
+          if (gdi.getRecorder().recording())
+            cmd = "setTableText(" + itos(editRow) + ", " + itos(editCol) + ", \"" + string(bf) + "\");"; 
+          setTableText(gdi, editRow, editCol, bf);
+          gdi.getRecorder().record(cmd);
           return true;
         }/*
         catch(const std::exception &ex) {

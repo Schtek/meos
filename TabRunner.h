@@ -89,6 +89,8 @@ private:
 
   void updateNumShort(gdioutput &gdi, pCourse crs, pRunner r);
 
+  static void autoGrowCourse(gdioutput &gdi);
+
 protected:
   void clearCompetitionData();
 

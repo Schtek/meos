@@ -65,6 +65,7 @@ private:
   
 protected:
   oEvent &oe() {return *oe_main;}
+  const oEvent &oe() const {return *oe_main;}
   
   TestMeOS &registerTest(const TestMeOS &test);
 
@@ -105,6 +106,7 @@ public:
   void press(const char *btn, int extra) const;
   void press(const char *btn, const char *extra) const;
 
+  string selectString(const char *btn, const char *data) const;
   string select(const char *btn, size_t data) const;
   void input(const char *id, const char *data) const;
   void click(const char *id) const;
@@ -112,12 +114,16 @@ public:
 
   void dblclick(const char *id, size_t data) const;
 
+  void tableCmd(const char *id) const;
+  void setTableText(int editRow, int editCol, const string &text) const;
+
   void setAnswer(const char *ans) const;
   void setFile(const string &file) const;
 
   void checkString(const char *str, int count = 1) const;
   void checkStringRes(const char *str, int count = 1) const;
-
+  void checkSubString(const char *str, int count = 1) const;
+  
   string getText(const char *ctrl) const;
   bool isChecked(const char *ctrl) const;
 

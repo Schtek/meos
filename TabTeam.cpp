@@ -309,7 +309,11 @@ bool TabTeam::save(gdioutput &gdi, bool dontReloadTeams) {
         t->setBib(bib, no, no > 0, false);
       }
     }
-    t->setStartTimeS(gdi.getText("Start"));
+    string start = gdi.getText("Start");
+    t->setStartTimeS(start);
+    if (t->getRunner(0))
+      t->getRunner(0)->setStartTimeS(start);
+
     t->setFinishTimeS(gdi.getText("Finish"));
 
     if (gdi.hasField("Fee"))
@@ -465,6 +469,9 @@ bool TabTeam::save(gdioutput &gdi, bool dontReloadTeams) {
     if (t->checkValdParSetup()) {
       gdi.alert("Laguppställningen hade fel, som har rättats");
     }
+
+    if (t->getRunner(0))
+      t->getRunner(0)->setStartTimeS(start);
 
     t->evaluate(true);
 
@@ -1175,18 +1182,19 @@ void TabTeam::loadTeamMembers(gdioutput &gdi, int ClassId, int ClubId, pTeam t)
       gdi.addInput(xp + dx[2], yp, bf_si, "", 5, TeamCB).setExtra(i); //Si
 
       gdi.addCheckbox(xp + dx[3], yp + gdi.scaleLength(10), "RENT"+itos(i), "", 0, false); //Rentcard
-      gdi.addButton(xp + dx[4], yp-2,  gdi.scaleLength(38), "MR" + itos(i), "...", TeamCB, "Redigera deltagaren.", false, false); // Change
-
-      gdi.addString(("STATUS"+itos(i)).c_str(), yp+gdi.scaleLength(5), xp + dx[5], 0, "#MMMMMMMMMMMMMMMM");
-      gdi.setText("STATUS"+itos(i), "", false);
-      gdi.dropLine(0.5);
-      gdi.popX();
     }
     else {
       //gdi.addInput(bf, "", 24);
       gdi.addInput(xp + dx[0], yp, bf, "", 18, 0);//Name
       gdi.disableInput(bf);
     }
+    gdi.addButton(xp + dx[4], yp-2,  gdi.scaleLength(38), "MR" + itos(i), "...", TeamCB, "Redigera deltagaren.", false, false); // Change
+
+    gdi.addString(("STATUS"+itos(i)).c_str(), yp+gdi.scaleLength(5), xp + dx[5], 0, "#MMMMMMMMMMMMMMMM");
+    gdi.setText("STATUS"+itos(i), "", false);
+    gdi.dropLine(0.5);
+    gdi.popX();
+
 
     if (t) {
       pRunner r=t->getRunner(i);
@@ -1537,8 +1545,12 @@ void TabTeam::doTeamImport(gdioutput &gdi) {
     gdi.addStringUT(1, tdesc);
     for (size_t j = 0; j < teamLineup[k].members.size(); j++) {
       TeamLineup::TeamMember &member = teamLineup[k].members[j];
+      if (member.name.empty())
+        continue;
+
       string mdesc = " " + itos(j+1) + ". ";
       bool warn = false;
+      
       if (useExisting) {
         pRunner r = findRunner(member.name, member.cardNo);
         if (r != 0)
@@ -1590,6 +1602,9 @@ void TabTeam::saveTeamImport(gdioutput &gdi, bool useExisting) {
 
     for (size_t j = 0; j < teamLineup[k].members.size(); j++) {
       TeamLineup::TeamMember &member = teamLineup[k].members[j];
+      if (member.name.empty())
+        continue;
+
       pRunner r = 0;
       if (useExisting) {
         r = findRunner(member.name, member.cardNo);

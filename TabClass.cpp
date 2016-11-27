@@ -154,6 +154,7 @@ int TabClass::multiCB(gdioutput &gdi, int type, void *data)
       if (!checkClassSelected(gdi))
         return false;
       save(gdi, true);
+      EditChanged=true;
       defineForking(gdi, true);
       return true;
     }
@@ -180,6 +181,7 @@ int TabClass::multiCB(gdioutput &gdi, int type, void *data)
       gdi.alert("Created X distinct forkings using Y courses.#" +
                  itos(res.first) + "#" + itos(res.second));
       loadPage(gdi);
+      EditChanged=true;
     }
     else if (bi.id == "AssignCourses") {
       set<int> selectedCourses, selectedLegs;
@@ -431,6 +433,7 @@ int TabClass::multiCB(gdioutput &gdi, int type, void *data)
           oe->checkOrderIdMultipleCourses(cid);
         }
       }
+      EditChanged=true;
     }
     else if (bi.id=="MRemove"){
       if (!checkClassSelected(gdi))
@@ -453,6 +456,7 @@ int TabClass::multiCB(gdioutput &gdi, int type, void *data)
         }
       }
     }
+    EditChanged=true;
   }
   else if (type==GUI_LISTBOX) {
     ListBoxInfo bi=*(ListBoxInfo *)data;
@@ -2697,7 +2701,7 @@ void TabClass::save(gdioutput &gdi, bool skipReload)
     vector<int> b;
     vector<string> s;
     oe->getStartBlocks(b, s);
-    oe->sanityCheck(gdi, false);
+    oe->sanityCheck(gdi, false, pc->getId());
   }
 }
 

@@ -28,7 +28,7 @@
 //V31: a
 //V33: abcde
 int getMeosBuild() {
-  string revision("$Rev: 442 $");
+  string revision("$Rev: 485 $");
   return 174 + atoi(revision.substr(5, string::npos).c_str());
 }
 
@@ -38,9 +38,9 @@ int getMeosBuild() {
 //V31: abcde
 //V32: abcdefgh
 //V33: abcdefghij
-//V34: ab
+//V34: abc
 string getMeosDate() {
-  string date("$Date: 2016-08-15 21:43:33 +0200 (må, 15 aug 2016) $");
+  string date("$Date: 2016-11-27 21:03:52 +0100 (sö, 27 nov 2016) $");
   return date.substr(7,10);
 }
 
@@ -159,4 +159,5 @@ void getSupporters(vector<string> &supp)
   supp.push_back("Western Race Services");
   supp.push_back("IK Gandvik, Skara");
   supp.push_back("IK Stern");
+  supp.push_back("OK Roslagen");
 }

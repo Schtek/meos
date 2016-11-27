@@ -1022,7 +1022,7 @@ int getNumberSuffix(const string &str)
 {
   int pos = str.length();
 
-  while (pos>1 && (isspace(str[pos-1]) || isdigit(str[pos-1]))) {
+  while (pos>1 && (str[pos-1] & (~127)) == 0  && (isspace(str[pos-1]) || isdigit(str[pos-1]))) {
     pos--;
   }
 
@@ -1645,3 +1645,130 @@ void MeOSFileLock::lockFile(const string &file) {
   }
 }
 
+void processGeneralTime(const string &generalTime, string &meosTime, string &meosDate) {
+  vector<string> parts;
+  split(generalTime, ":-,. /\t", parts);
+  
+  // Indices into parts
+  int year = -2;
+  int month = -2;
+  int day = -2;
+
+  int hour = -2;
+  int minute = -2;
+  int second = -2;
+  int subsecond = -2;
+  
+  int found = 0, base = -1, iter = 0;
+  bool pm = strstr(generalTime.c_str(), "PM") != 0 || 
+            strstr(generalTime.c_str(), "pm") != 0;
+          
+  while (iter < 2 && second==-2) {
+    if (base == found)
+      iter++;
+
+    base = found;
+    for (size_t k = 0; k < parts.size(); k++) {
+      if (parts[k].empty())
+        continue;
+      int number = atoi(parts[k].c_str());
+      if (number == 0 && parts[k][0] != '0')
+        number = -1; // Not a number
+
+      if (iter == 0) {
+        // Date
+        if (number > 1900 && number < 3000 && year < 0) {
+          found++;
+          year = k;
+        }
+        else if (number > 1 && number <= 12 && month < 0 && (year == k+1 || year == k-1) ) {
+          month = k;
+          found++;
+        }
+        else if (number > 1 && number <=31 && day < 0 && (month == k+1 || month == k-1)) {
+          day = k;
+          found++;
+          iter++;
+          break;
+        }
+        else if (number > 1011900 && number < 30000101 && year < 0 && month < 0 && day < 0) {
+          day = k; //Date with format 20160906 or 06092016
+          month = k;
+          year = k;
+          found++;
+          break;
+        }
+      }
+      else if (iter == 1) {
+        
+        // Time
+        if (number >= 0 && number <= 24 && year != k && day != k && month != k && hour < 0) {
+          hour = k;
+          found++;
+        }
+        else if (number >= 0 && number <= 59 && minute < 0 && hour == k-1) {
+          minute = k;
+          found++;
+        }
+        else if (number >= 0 && number <= 59 && second < 0 && minute == k-1) {
+          second = k;
+          found++;
+        }
+        else if (number >= 0 && number < 1000 && subsecond < 0 && second == k-1 && k != year) {
+          subsecond = k;
+          found++;
+          iter++;
+          break;
+        }
+      }
+    }
+  }
+
+  if (second >= 0 && minute >= 0 && hour>= 0) {
+    if (!pm)
+      meosTime = parts[hour] + ":" + parts[minute] + ":" + parts[second];
+    else {
+      int rawHour = atoi(parts[hour].c_str());
+      if (rawHour < 12)
+        rawHour+=12;
+      meosTime = itos(rawHour) + ":" + parts[minute] + ":" + parts[second];
+    }
+  }
+
+  if (year >= 0 && month >= 0 && day >= 0) {
+    int y = -1, m = -1, d = -1;
+    if (year != month) {
+      y = atoi(parts[year].c_str());
+      m = atoi(parts[month].c_str());
+      d = atoi(parts[day].c_str());
+
+      //meosDate = parts[year] + "-" + parts[month] + "-" + parts[day];
+    } 
+    else {
+      int td = atoi(parts[year].c_str());
+      int y1 = td / 10000;
+      int m1 = (td / 100) % 100;
+      int d1 = td % 100;
+      bool ok = y1 > 2000 && y1 < 3000 && m1>=1 && m1<=12 && d1 >= 1 && d1 <= 31;
+      if (!ok) {
+        y1 = td % 10000;
+        m1 = (td / 10000) % 100;
+        d1 = (td / 1000000);
+
+        ok = y1 > 2000 && y1 < 3000 && m1>=1 && m1<=12 && d1 >= 1 && d1 <= 31;
+      }
+      if (ok) {
+        y = y1;
+        m = m1;
+        d = d1;
+      }
+        meosDate = itos(y1) + "-" + itos(m1) + "-" + itos(d1);
+    }
+    if (y > 0) {
+      char bf[24];
+      sprintf_s(bf, 24, "%d-%02d-%02d", y, m, d);
+      meosDate = bf;
+    }
+  }
+
+}
