@@ -108,6 +108,7 @@ bool oEvent::exportOECSV(const char *file, int languageTypeIndex, bool includeSp
 	};
 
 	csvparser csv;
+
 	oClass::initClassId(*this);
 
 	if (!csv.openOutput(file))
@@ -116,29 +117,45 @@ bool oEvent::exportOECSV(const char *file, int languageTypeIndex, bool includeSp
 	calculateResults(RTClassResult);
 
 	oRunnerList::iterator it;
+	string maleString;
+	string femaleString;
 
 	switch (languageTypeIndex)
 	{
 	case 1: // English
 		csv.OutputRow("Stno;Chip;Database Id;Surname;First name;YB;S;Block;nc;Start;Finish;Time;Classifier;Club no.;Cl.name;City;Nat;Cl. no.;Short;Long;Num1;Num2;Num3;Text1;Text2;Text3;Adr. name;Street;Line2;Zip;City;Phone;Fax;EMail;Id/Club;Rented;Start fee;Paid;Course no.;Course;km;m;Course controls;Pl;Start punch;Finish punch;Control1;Punch1;Control2;Punch2;Control3;Punch3;Control4;Punch4;Control5;Punch5;Control6;Punch6;Control7;Punch7;Control8;Punch8;Control9;Punch9;Control10;Punch10;(may be more) ...");
+		maleString = "M";
+		femaleString = "F";
 		break;
 	case 2: // Svenska
 		csv.OutputRow("Startnr;Bricka;Databas nr.;Efternamn;Förnamn;År;K;Block;ut;Start;Mål;Tid;Status;Klubb nr.;Namn;Ort;Land;Klass nr.;Kort;Lång;Num1;Num2;Num3;Text1;Text2;Text3;Adr. namn;Gata;Rad 2;Post nr.;Ort;Tel;Fax;E-post;Id/Club;Hyrd;Startavgift;Betalt;Bana nr.;Bana;km;Hm;Bana kontroller;Pl;Startstämpling;Målstämpling;Kontroll1;Stämplar1;Kontroll2;Stämplar2;Kontroll3;Stämplar3;Kontroll4;Stämplar4;Kontroll5;Stämplar5;Kontroll6;Stämplar6;Kontroll7;Stämplar7;Kontroll8;Stämplar8;Kontroll9;Stämplar9;Kontroll10;Stämplar10;(kan fortsätta)..");
+		maleString = "M"; 
+		femaleString = "K"; 
 		break;
 	case 3: // Deutsch
 		csv.OutputRow("Stnr;Chip;Datenbank Id;Nachname;Vorname;Jg;G;Block;AK;Start;Ziel;Zeit;Wertung;Club-Nr.;Abk;Ort;Nat;Katnr;Kurz;Lang;Num1;Num2;Num3;Text1;Text2;Text3;Adr. Name;Straße;Zeile2;PLZ;Ort;Tel;Fax;EMail;Id/Verein;Gemietet;Startgeld;Bezahlt;Bahnnummer;Bahn;km;Hm;Bahn Posten;Pl;Startstempel;Zielstempel;Posten1;Stempel1;Posten2;Stempel2;Posten3;Stempel3;Posten4;Stempel4;Posten5;Stempel5;Posten6;Stempel6;Posten7;Stempel7;Posten8;Stempel8;Posten9;Stempel9;Posten10;Stempel10;(und weitere)...");
+		maleString = "M";
+		femaleString = "W";
 		break;
 	case 4: // Dansk
 		csv.OutputRow("Stnr;Brik;Database ID;Efternavn;Fornavn;År;K;Blok;UFK;Start;Mål;Tid;Status;Klub nr.;Navn;Klub;Land;Klasse nr.;kort;Lang;Num1;Num2;Num3;Text1;Text2;Text3;Adr. navn;Gade;Linie2;Post nr.;Klub;Tlf.;Fax.;Email;Id/klub;Lejet;Startafgift;Betalt;Bane nr.;Bane;km;Hm;Poster på bane;Pl;Start-stempling;Mål-stempling;Post1;Klip1;Post2;Klip2;Post3;Klip3;Post4;Klip4;Post5;Klip5;Post6;Klip6;Post7;Klip7;Post8;Klip8;Post9;Klip9;Post10;Klip10;(måske mere)...");
+		maleString = "M";
+		femaleString = "K";
 		break;
 	case 5: // Français
 		csv.OutputRow("N° dép.;Puce;Ident. base de données;Nom;Prénom;Né;S;Plage;nc;Départ;Arrivée;Temps;Evaluation;N° club;Nom;Ville;Nat;N° cat.;Court;Long;Num1;Num2;Num3;Text1;Text2;Text3;Adr. nom;Rue;Ligne2;Code Post.;Ville;Tél.;Fax;E-mail;Id/Club;Louée;Engagement;Payé;Circuit N°;Circuit;km;m;Postes du circuit;Pl;Poinçon de départ;Arrivée (P);Poste1;Poinçon1;Poste2;Poinçon2;Poste3;Poinçon3;Poste4;Poinçon4;Poste5;Poinçon5;Poste6;Poinçon6;Poste7;Poinçon7;Poste8;Poinçon8;Poste9;Poinçon9;Poste10;Poinçon10;(peut être plus) ...");
+		maleString = "H";
+		femaleString = "F";
 		break;
 	case 6: // Russian
 		csv.OutputRow("Stnr;Chip;Datenbank Id;Nachname;Vorname;Jg;G_Sex;Block;AK_notclass;Start;Ziel;Zeit;Wertung;Club-Nr.;Abk;Ort;Nat;Katnr;Kurz;Lang;Num1;Num2;Num3;Text1;Text2;Text3;Adr. Name;Strasse;Zeile2;PLZ;Ort;Tel;Fax;EMail;Club_TIdNr;Gemietet;Startgeld;Bezahlt;Bahnnummer;Bahn;km_Kilometer;Hm_Climbmeter;Bahn Posten;Pl_Place;Startstempel;Zielstempel;Posten1;Stempel1;Posten2;Stempel2;Posten3;Stempel3;Posten4;Stempel4;Posten5;Stempel5;Posten6;Stempel6;Posten7;Stempel7;Posten8;Stempel8;Posten9;Stempel9;Posten10;Stempel10;(und weitere)...");
+		maleString = "M";
+		femaleString = "W";
 		break;
 	default:
 		csv.OutputRow("Stno;Chip;Database Id;Surname;First name;YB;S;Block;nc;Start;Finish;Time;Classifier;Club no.;Cl.name;City;Nat;Cl. no.;Short;Long;Num1;Num2;Num3;Text1;Text2;Text3;Adr. name;Street;Line2;Zip;City;Phone;Fax;EMail;Id/Club;Rented;Start fee;Paid;Course no.;Course;km;m;Course controls;Pl;Start punch;Finish punch;Control1;Punch1;Control2;Punch2;Control3;Punch3;Control4;Punch4;Control5;Punch5;Control6;Punch6;Control7;Punch7;Control8;Punch8;Control9;Punch9;Control10;Punch10;(may be more) ...");
+		maleString = "M";
+		femaleString = "F";
 	}
 
 	char bf[256];
@@ -153,7 +170,22 @@ bool oEvent::exportOECSV(const char *file, int languageTypeIndex, bool includeSp
 		row[OEsurname] = it->getFamilyName();
 		row[OEfirstname] = it->getGivenName();
 		row[OEbirth] = conv_is(di.getInt("BirthYear") % 100);
-		row[OEsex] = di.getString("Sex");
+
+		// Specialized per language
+		PersonSex s = it->getSex();
+		switch (s) {
+		case sFemale:
+			row[OEsex] = femaleString;
+			break;
+		case sMale:
+			row[OEsex] = maleString;
+			break;
+		case sBoth:
+		case sUnknown:
+		default:
+			row[OEsex] = di.getString("Sex");
+			break;
+		}
 
 		// nc / Runner shall not / doesn't want to be ranked
 		if (it->getStatus() == StatusNotCompetiting)
@@ -668,15 +700,23 @@ bool oEvent::addOECSVCompetitorDB(const vector<string> row, bool reverseNames, b
 	else
 		name = given + " " + family;
 
-	// TODO: review use of char[] and make it robust against sex size
+	// Depending on the OE language, man = "H" (French) or "M" (English, Svenska, Dansk, Russian, Deutsch)
+	// woman = "F" (English, French) or "W" (Deutsch, Russian) or "K" (Svenska, Dansk)
 	char sex[2];
-	strcpy(sex, row[OEsex].c_str());
+	if (row[OEsex] == "H" || row[OEsex] == "M")
+		strcpy(sex, "M");
+	else if (row[OEsex] == "F" || row[OEsex] == "K" || row[OEsex] == "W")
+		strcpy(sex, "W");
+	else
+		strcpy(sex, "");
+
 	int birth = atoi(row[OEbirth].c_str());
 
+	// Hack to take care of inconsistency between FFCO licensees archive (France) and event registrations from FFCO (FR)
 	char national[4] = { 0,0,0,0 };
-	if (row[OEnat] == "France")
+	if (useFFCOClubMapping && (row[OEnat] == "France"))
 	{
-		strcpy(national, "FRA");
+		strcpy(national, "FR");
 	}
 
 	// Extract club data

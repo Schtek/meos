@@ -1365,14 +1365,12 @@ string encodeSex(PersonSex sex) {
 }
 
 PersonSex interpretSex(const string &sex) {
-  if (sex == "F")
+  if (sex == "F" || sex == "K" || sex == "W")
     return sFemale;
-  else if (sex == "M")
+  else if (sex == "M" || sex == "H")
     return sMale;
   else if (sex == "B")
     return sBoth;
-  if (sex == "K" || sex == "W")
-    return sFemale;
   else
     return sUnknown;
 }

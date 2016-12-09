@@ -192,7 +192,7 @@ bool csvparser::ImportOS_CSV(oEvent &event, const char *file)
         r->setEntrySource(externalSourceId);
         oDataInterface DI=r->getDI();
         //DI.setInt("BirthYear", extendYear(atoi(sp[rindex+OSRyb])));
-        DI.setString("Sex", sp[rindex+OSRsex]);
+		r->setSex(interpretSex(sp[rindex + OSRsex]));
         DI.setString("Nationality", sp[OSnat]);
 
         if (strlen(sp[rindex+OSRrentcard])>0)
@@ -365,7 +365,7 @@ bool csvparser::ImportOE_CSV(oEvent &event, const char *file, bool reverseNames,
       }
       oDataInterface DI=pr->getDI();
 
-      DI.setString("Sex", sp[OEsex]);
+      pr->setSex(interpretSex(sp[OEsex]));
       DI.setInt("BirthYear", extendYear(atoi(sp[OEbirth])));
       DI.setString("Nationality", sp[OEnat]);
 
