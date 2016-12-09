@@ -78,6 +78,7 @@ void TabCourse::selectCourse(gdioutput &gdi, pCourse pc)
     gdi.setText("Name", pc->getName());
 
     gdi.setTextZeroBlank("Length", pc->getLength());
+	gdi.setTextZeroBlank("Climb", pc->getDI().getInt("Climb"));
     gdi.setTextZeroBlank("NumberMaps", pc->getNumberMaps());
 
     gdi.check("FirstAsStart", pc->useFirstAsStart());
@@ -174,8 +175,9 @@ void TabCourse::selectCourse(gdioutput &gdi, pCourse pc)
   else {
     gdi.setText("Name", "");
     gdi.setText("Controls", "");
-    gdi.setText("Length", "");
-    gdi.setText("NumberMaps", "");
+	gdi.setText("Length", "");
+	gdi.setText("Climb", "");
+	gdi.setText("NumberMaps", "");
     gdi.check("FirstAsStart", false);
     gdi.check("LastAsFinish", false);
     courseId = 0;
@@ -246,6 +248,7 @@ void TabCourse::save(gdioutput &gdi, int canSwitchViewMode)
   pc->setName(name);
   bool changedCourse = pc->importControls(gdi.getText("Controls"), true);
   pc->setLength(gdi.getTextNo("Length"));
+  pc->getDI().setInt("Climb", gdi.getTextNo("Climb"));
   pc->setNumberMaps(gdi.getTextNo("NumberMaps"));
   pc->firstAsStart(firstAsStart);
   pc->lastAsFinish(lastAsFinish);
@@ -705,10 +708,14 @@ bool TabCourse::loadPage(gdioutput &gdi) {
   gdi.fillRight();
   gdi.addInput("Name", "", 16, 0, "Namn:");
   gdi.addInput("NumberMaps", "", 6, 0, "Antal kartor:");
+  int lengthX = gdi.getCX();
   gdi.addInput("Length", "", 8, 0, "Längd (m):");
   gdi.dropLine(0.9);
   gdi.fillDown();
   gdi.addButton("LegLengths", "Redigera sträcklängder...", CourseCB).isEdit(true);
+
+  gdi.setCX(lengthX);
+  gdi.addInput("Climb", "", 8, 0, "Climb (m):");
 
   gdi.popX();
 
