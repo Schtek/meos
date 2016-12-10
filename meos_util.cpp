@@ -23,6 +23,7 @@
 #include "stdafx.h"
 #include <vector>
 #include <math.h>
+#include <regex>
 #include "meos_util.h"
 #include "localizer.h"
 #include "oFreeImport.h"
@@ -1049,8 +1050,21 @@ int extractAnyNumber(const string &str, string &prefix, string &suffix)
 
 
 /** Matches H21 L with H21 Lång and H21L */
+// TODO: currently this algorithm raises issues with classes named following a free scheme.
+// eg Violet is considered matching Violet Court, which is obviously wrong.
+// A better solution would be to limit this specific processing to classes matching
+// ^[HD]" "*[1-9][0-9]
+// For the other cases, fall back to the simple string comparison mechanism 
 bool compareClassName(const string &a, const string &b)
 {
+  // First decide what comparison algorithm shall be used
+  // Try hard to gather similar classes when both are something like H20, D20, W45, H21 L, D20E, etc. 
+  // If at least one class doesn't match this (like dummy classes used for non licensees)
+  // Use the usual string comparison algorithm
+  regex r(R"([[:alpha:]][[:space:]]*[1-9][0-9].*)"); 
+  if (!regex_match(a, r) || !regex_match(b, r))
+    return a.compare(b) == 0;
+
   const char *as, *bs;
   if (a.length()>b.length()) {
     as = a.c_str();
