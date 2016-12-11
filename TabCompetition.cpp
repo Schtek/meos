@@ -3515,7 +3515,7 @@ void TabCompetition::selectStartlistOptions(gdioutput &gdi) {
   gdi.selectFirstItem("Type");
 
 
-  gdi.addSelection("LanguageType", 250, 200, CompetitionCB, "Export language:");
+  gdi.addSelection("LanguageType", 250, 200, CompetitionCB, "Export language");
   vector<pair<string, size_t>> typeLanguages;
   typeLanguages.push_back(make_pair(lang.tl("English"), 1));
   typeLanguages.push_back(make_pair(lang.tl("Svenska"), 2));
@@ -3594,7 +3594,7 @@ void TabCompetition::selectExportSplitOptions(gdioutput &gdi) {
   gdi.addItem("Type", types);
   gdi.selectFirstItem("Type");
 
-  gdi.addSelection("LanguageType", 250, 200, CompetitionCB, "Export language:");
+  gdi.addSelection("LanguageType", 250, 200, CompetitionCB, "Export language");
   vector<pair<string, size_t>> typeLanguages;
   typeLanguages.push_back(make_pair(lang.tl("English"), 1));
   typeLanguages.push_back(make_pair(lang.tl("Svenska"), 2));
