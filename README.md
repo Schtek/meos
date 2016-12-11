@@ -2,7 +2,7 @@
 MeOS is a full featured orienteering event organizing program (http://www.melin.nu/meos/en/).
 
 This repository is dedicated to improvements and more specifically compatibility with French Federation of Orienteering formats.
-It is based on development version 3.4.616 snapshot 2016-08-15 and the strategy is to contribute back these developments to the official project.
+It is based on development version 3.4.616 snapshot 2016-11-27 and the strategy is to contribute back these developments to the official project.
 
 ## Caution
 * __This is experimental software. Backup your event data before executing this version of meos.__
