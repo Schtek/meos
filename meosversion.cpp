@@ -28,7 +28,7 @@
 //V31: a
 //V33: abcde
 int getMeosBuild() {
-  string revision("$Rev: 485 $");
+  string revision("$Rev: 492 $");
   return 174 + atoi(revision.substr(5, string::npos).c_str());
 }
 
@@ -40,12 +40,12 @@ int getMeosBuild() {
 //V33: abcdefghij
 //V34: abc
 string getMeosDate() {
-  string date("$Date: 2016-11-27 21:03:52 +0100 (s√∂, 27 nov 2016) $");
+  string date("$Date: 2016-12-10 16:33:53 +0100 (l√∂, 10 dec 2016) $");
   return date.substr(7,10);
 }
 
 string getBuildType() {
-  return "Snapshot"; // No parantheses (...)
+  return "Beta 1"; // No parantheses (...)
 }
 
 string getMajorVersion() {
@@ -160,4 +160,7 @@ void getSupporters(vector<string> &supp)
   supp.push_back("IK Gandvik, Skara");
   supp.push_back("IK Stern");
   supp.push_back("OK Roslagen");
+  supp.push_back("Emmaboda Verda OK");
+  supp.push_back("KOB ATU Koöice");
+  supp.push_back("G‰vle OK");
 }

@@ -156,6 +156,7 @@ protected:
 
   void AnalyseSI5Time(BYTE *data, DWORD &time, DWORD &control);
   bool AnalysePunch(BYTE *data, DWORD &time, DWORD &control);
+  void AnalyseTPunch(BYTE *data, DWORD &time, DWORD &control);
 
   //Card read waiting to be processed.
   list<SICard> ReadCards;

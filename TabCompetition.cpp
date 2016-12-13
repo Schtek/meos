@@ -782,6 +782,9 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       gdi.addButton("MultiEvent", "Återgå", CompetitionCB);
       gdi.refresh();
     }
+    else if (bi.id == "SaveMulti") {
+      saveMultiEvent(gdi);
+    }
     else if (bi.id == "OpenPost" || bi.id == "OpenPre") {
       
       saveMultiEvent(gdi);
@@ -1514,7 +1517,7 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
                   skip = true;
                 }
               }
-              if (!skip)
+              if (!skip)  
                 oe->automaticDrawAll(gdi, formatTimeHMS(firstStart), "2:00", "2", true, true, 1);
               drawn = true;
               break;
@@ -3066,6 +3069,7 @@ void TabCompetition::loadMultiEvent(gdioutput &gdi) {
   gdi.dropLine(3);
   gdi.popX();
 
+  gdi.addButton("SaveMulti", "Spara", CompetitionCB);
   gdi.addButton("CloneCmp", "Lägg till ny etapp...", CompetitionCB);
   gdi.addButton("TransferData", "Överför resultat till nästa etapp", CompetitionCB);
   gdi.addButton("Cancel", "Återgå", CompetitionCB);

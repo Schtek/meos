@@ -70,6 +70,18 @@ void TabClass::clearCompetitionData() {
   cInfoCache.clear();
   hasWarnedDirect = false;
 
+  lastSeedMethod = -1;
+  lastSeedPreventClubNb = true;
+  lastSeedReverse = false;
+  lastSeedGroups = "1";
+  lastPairSize = 1;
+  lastFirstStart = "";
+  lastInterval = "2:00";
+  lastNumVac = "0";
+  lastHandleBibs = false;
+  lastScaleFactor = "1.0";
+  lastMaxAfter = "60:00";
+
   gdioutput *gdi = getExtraWindow(visualDrawWindow, false);
   if (gdi) {
     gdi->closeWindow();
@@ -3014,8 +3026,7 @@ void TabClass::prepareForDrawing(gdioutput &gdi) {
 }
 
 void TabClass::drawDialog(gdioutput &gdi, DrawMethod method, const oClass &pc) {
-  if(method == DMSOFT || method == DMRandom)
-    oe->setProperty("DefaultDrawMethod", method);
+  oe->setProperty("DefaultDrawMethod", method);
 
   if (lastDrawMethod == method)
     return;
@@ -3032,19 +3043,20 @@ void TabClass::drawDialog(gdioutput &gdi, DrawMethod method, const oClass &pc) {
 
   int firstStart = 3600,
       interval = 120,
-      vac = 0;
+      vac = atoi(lastNumVac.c_str());
 
-  //bool pairWise = false;
-  int pairSize = 1;
+  int pairSize = lastPairSize;
 
   if (gdi.hasField("FirstStart"))
     firstStart = oe->getRelativeTime(gdi.getText("FirstStart"));
+  else if (!lastFirstStart.empty())
+    firstStart = oe->getRelativeTime(lastFirstStart);
 
   if (gdi.hasField("Interval"))
     interval = convertAbsoluteTimeMS(gdi.getText("Interval"));
+  else if (!lastInterval.empty())
+    interval = convertAbsoluteTimeMS(lastInterval);
 
-  //if (gdi.hasField("Pairwise"))
-  //  pairWise = gdi.isChecked("Pairwise");
   if (gdi.hasField("PairSize")) {
     pairSize = gdi.getSelectedItem("PairSize").first;
   }
@@ -3057,17 +3069,25 @@ void TabClass::drawDialog(gdioutput &gdi, DrawMethod method, const oClass &pc) {
     gdi.dropLine(1);
     gdi.pushX();
     gdi.fillRight();
-    gdi.addSelection("SeedMethod", 120, 100, 0, "Seedningskälla:");
+    ListBoxInfo &seedmethod = gdi.addSelection("SeedMethod", 120, 100, 0, "Seedningskälla:");
     vector< pair<string, size_t> > methods;
     oClass::getSeedingMethods(methods);
     gdi.addItem("SeedMethod", methods);
-    gdi.selectFirstItem("SeedMethod");
-    gdi.addInput("SeedGroups", "1", 32, 0, "Seedningsgrupper:", "Ange en gruppstorlek (som repeteras) eller flera kommaseparerade gruppstorlekar");
+    if (lastSeedMethod == -1)
+      gdi.selectFirstItem("SeedMethod");
+    else
+      gdi.selectItemByData("SeedMethod", lastSeedMethod);
+    seedmethod.setSynchData(&lastSeedMethod);
+    gdi.addInput("SeedGroups", lastSeedGroups, 32, 0, "Seedningsgrupper:", 
+                 "Ange en gruppstorlek (som repeteras) eller flera kommaseparerade gruppstorlekar").
+                 setSynchData(&lastSeedGroups);
     gdi.fillDown();
     gdi.popX();
     gdi.dropLine(3);
-    gdi.addCheckbox("PreventClubNb", "Hindra att deltagare från samma klubb startar på angränsande tider", 0, false);
-    gdi.addCheckbox("ReverseSeedning", "Låt de bästa start först", 0, false);
+    gdi.addCheckbox("PreventClubNb", "Hindra att deltagare från samma klubb startar på angränsande tider", 
+                    0, lastSeedPreventClubNb).setSynchData(&lastSeedPreventClubNb);
+    gdi.addCheckbox("ReverseSeedning", "Låt de bästa start först", 0, lastSeedReverse).
+                    setSynchData(&lastSeedReverse);
   }
   else {
     gdi.popX();
@@ -3075,29 +3095,27 @@ void TabClass::drawDialog(gdioutput &gdi, DrawMethod method, const oClass &pc) {
     gdi.dropLine(1);
   }
 
-  
   if (method == DMRandom || method == DMSOFT || method == DMPursuit
       || method == DMReversePursuit || method == DMSeeded) {
-    //gdi.addCheckbox("Pairwise", "Tillämpa parstart", 0, pairWise);
-    gdi.addSelection("PairSize", 150, 200, 0, "Tillämpa parstart:");
+    gdi.addSelection("PairSize", 150, 200, 0, "Tillämpa parstart:").setSynchData(&lastPairSize);
     gdi.addItem("PairSize", getPairOptions());
     gdi.selectItemByData("PairSize", pairSize);
   }
   gdi.fillRight();
 
-  gdi.addInput("FirstStart", oe->getAbsTime(firstStart), 10, 0, "Första start:");
+  gdi.addInput("FirstStart", oe->getAbsTime(firstStart), 10, 0, "Första start:").setSynchData(&lastFirstStart);
 
   if (method == DMPursuit || method == DMReversePursuit) {
-    gdi.addInput("MaxAfter", "60:00", 10, 0, "Maxtid efter:", "Maximal tid efter ledaren för att delta i jaktstart");
+    gdi.addInput("MaxAfter", lastMaxAfter, 10, 0, "Maxtid efter:", "Maximal tid efter ledaren för att delta i jaktstart").setSynchData(&lastMaxAfter);
     gdi.addInput("TimeRestart", oe->getAbsTime(firstStart + 3600),  8, 0, "Första omstartstid:");
-    gdi.addInput("ScaleFactor", "1.0",  8, 0, "Tidsskalning:");
+    gdi.addInput("ScaleFactor", lastScaleFactor,  8, 0, "Tidsskalning:").setSynchData(&lastScaleFactor);
   }
 
   if (method != DMSimultaneous)
-    gdi.addInput("Interval", formatTime(interval), 10, 0, "Startintervall (min):");
+    gdi.addInput("Interval", formatTime(interval), 10, 0, "Startintervall (min):").setSynchData(&lastInterval);
 
   if (method == DMRandom || method == DMSOFT || method == DMClumped)
-    gdi.addInput("Vacanses", itos(vac), 10, 0, "Antal vakanser:");
+    gdi.addInput("Vacanses", itos(vac), 10, 0, "Antal vakanser:").setSynchData(&lastNumVac);
 
   if ((method == DMRandom || method == DMSOFT || method == DMSeeded) && pc.getNumStages() > 1 && pc.getClassType() != oClassPatrol) {
     gdi.addSelection("Leg", 90, 100, 0, "Sträcka:", "Sträcka att lotta");
@@ -3112,7 +3130,7 @@ void TabClass::drawDialog(gdioutput &gdi, DrawMethod method, const oClass &pc) {
     gdi.dropLine(3.5);
 
     gdi.fillRight();
-    gdi.addCheckbox("HandleBibs", "Tilldela nummerlappar:", ClassesCB, false);
+    gdi.addCheckbox("HandleBibs", "Tilldela nummerlappar:", ClassesCB, lastHandleBibs).setSynchData(&lastHandleBibs);
     gdi.dropLine(-0.2);
     gdi.addInput("Bib", "", 10, 0, "", "Mata in första nummerlappsnummer, eller blankt för att ta bort nummerlappar");
     gdi.disableInput("Bib");

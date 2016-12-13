@@ -1631,8 +1631,8 @@ bool oEvent::addXMLRank(const xmlobject &xrank)
   if (rank)
     DI.setInt("Rank", rank.getObjectInt("RankPosition"));
 
-  if (vrank)
-    DI.setInt("VacRank", vrank.getObjectInt("RankPosition"));
+//  if (vrank)
+//    DI.setInt("VacRank", vrank.getObjectInt("RankPosition"));
 
   r->synchronize();
 

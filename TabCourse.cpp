@@ -115,27 +115,38 @@ void TabCourse::selectCourse(gdioutput &gdi, pCourse pc)
     string usedInClasses;
     for (size_t k = 0; k < cls.size(); k++) {
       int nleg = max<int>(cls[k]->getNumStages(), 1);
-      vector<int> usage;
+      int nlegwithcrs = 0;
+      vector<string> usage;
+      set<int> allClassCrs;
       for (int j = 0; j < nleg; j++) {
         cls[k]->getCourses(j, crs);
+        if (!crs.empty())
+          nlegwithcrs++;
+
+        bool done = false;
         for (size_t i = 0; i < crs.size(); i++) {
-          if (crs[i] == pc) {
-            usage.push_back(j+1);
-            break;
+          if (!crs[i])
+            continue;
+          allClassCrs.insert(crs[i]->getId());
+          if (!done && crs[i] == pc) {
+            usage.push_back(cls[k]->getLegNumber(j));
+            done = true; // Cannot break, fill allClasssCrs
           }
         }
       }
       string add;
-      if (usage.size() == nleg) {
+      if (usage.size() == nleg || 
+          usage.size() == nlegwithcrs || 
+          (!usage.empty() && allClassCrs.size() == 1)) {
         add = cls[k]->getName();
       }
-      else if (usage.size() > 1) {
+      else if (!usage.empty()) {
         add = cls[k]->getName();
         add += " (";
         for (size_t i = 0; i < usage.size(); i++) {
           if (i > 0)
             add += ", ";
-          add += itos(usage[i]);
+          add += usage[i];
         }
         add += ")";
       }

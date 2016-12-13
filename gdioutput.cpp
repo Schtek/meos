@@ -87,7 +87,7 @@ void GuiHandler::handle(gdioutput &gdi, BaseInfo &info, GuiEventType type) {
 
 InputInfo::InputInfo() : hWnd(0), callBack(0), ignoreCheck(false),
                 isEditControl(true), bgColor(colorDefault), fgColor(colorDefault),
-                writeLock(false) {}
+                writeLock(false), updateLastData(0) {}
 
 
 EventInfo::EventInfo() : callBack(0), keyEvent(KC_NONE) {}
@@ -1092,6 +1092,8 @@ ButtonInfo &gdioutput::addCheckbox(int x, int y, const string &id, const string 
   if (Checked)
     SendMessage(bi.hWnd, BM_SETCHECK, BST_CHECKED, 0);
 
+  bi.checked = Checked;
+
   if (!AbsPos)
     updatePos(x, y, size.cx+int(30*scale), size.cy+int(scale * 12)+3);
 
@@ -1131,6 +1133,8 @@ void gdioutput::check(const string &id, bool state, bool keepOriginalState){
   for(it=BI.begin(); it != BI.end(); ++it) {
     if (it->id==id){
       SendMessage(it->hWnd, BM_SETCHECK, state ? BST_CHECKED:BST_UNCHECKED, 0);
+      it->checked = state;
+      it->synchData();
       if (!keepOriginalState)
         it->originalState = state;
       return;
@@ -1857,6 +1861,9 @@ void gdioutput::processButtonMessage(ButtonInfo &bi, DWORD wParam)
             cmd = "press(\"" + bi.id + "\", "  + itos(bi.getExtraInt()) + "); //" + bi.text;
         }
       }
+      if (bi.isCheckbox)
+        bi.checked = SendMessage(bi.hWnd, BM_GETCHECK, 0, 0)==BST_CHECKED;
+      bi.synchData();
       if (bi.callBack || bi.handler) {
         setWaitCursor(true);
         if (!bi.handleEvent(*this, GUI_BUTTON) && bi.callBack)
@@ -1902,6 +1909,7 @@ void gdioutput::processEditMessage(InputInfo &bi, DWORD wParam)
     case EN_KILLFOCUS: {
       string old = bi.focusText;
       getWindowText(bi.hWnd, bi.text);
+      bi.synchData();
       bool equal = old == bi.text;
       string cmd = "input(\"" + bi.id + "\", \"" + bi.text + "\");";
       if (bi.handler)
@@ -1915,6 +1923,7 @@ void gdioutput::processEditMessage(InputInfo &bi, DWORD wParam)
     case EN_SETFOCUS:
       currentFocus = bi.hWnd;
       getWindowText(bi.hWnd, bi.text);
+      bi.synchData();
       bi.focusText = bi.text;
       if (bi.handler)
         bi.handler->handle(*this, bi, GUI_FOCUS);
@@ -2965,6 +2974,7 @@ BaseInfo *gdioutput::setText(const char *id, const string &text, bool Update)
       SetWindowText(it->hWnd, text.c_str());
       it->writeLock = oldWR;
       it->text = text;
+      it->synchData();
       it->original = text;
       it->focusText = text;
       return &*it;
@@ -6407,6 +6417,7 @@ string gdioutput::dbSelect(const string &id, int data) {
 }
 
 void gdioutput::internalSelect(ListBoxInfo &bi) {
+  bi.syncData();
   if (bi.callBack || bi.handler) {
     setWaitCursor(true);
     hasCleared = false;

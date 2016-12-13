@@ -1778,9 +1778,13 @@ int oClass::getTotalLegLeaderTime(int leg, bool includeInput) const
   }
 }
 
-void oClass::mergeClass(int classIdSec){
+void oClass::mergeClass(int classIdSec) {
   vector<pTeam> t;
   vector<pRunner> r;
+  vector<pRunner> rThis;
+
+  oe->getRunners(classIdSec, 0, rThis, true);
+
   // Update teams
   oe->getTeams(classIdSec, t, true);
   
@@ -1797,13 +1801,80 @@ void oClass::mergeClass(int classIdSec){
     it->synchronize(); //Synchronizes runners also  
   }
 
-  oe->getRunners(classIdSec, 0, r, true);
+  oe->getRunners(classIdSec, 0, r, false);
   // Update runners
   for (size_t k = 0; k < r.size(); k++) {
     pRunner it = r[k];
     it->Class = this;
     it->updateChanged();
     it->synchronize();
+  }
+
+  // Check heats
+  
+  int maxHeatThis = 0;
+  bool missingHeatThis = false, uniqueHeatThis = true;
+  for (size_t k = 0; k < rThis.size(); k++) {
+    int heat = rThis[k]->getDCI().getInt("Heat");
+    if (heat == 0)
+      missingHeatThis = true;
+    if (maxHeatThis != 0 && heat != maxHeatThis)
+      uniqueHeatThis = false;
+    maxHeatThis = max(maxHeatThis, heat);
+  }
+
+  int maxHeatOther = 0;
+  bool missingHeatOther = false, uniqueHeatOther = true;
+  for (size_t k = 0; k < r.size(); k++) {
+    int heat = r[k]->getDCI().getInt("Heat");
+    if (heat == 0)
+      missingHeatOther = true;
+    if (maxHeatOther != 0 && heat != maxHeatOther)
+      uniqueHeatOther = false;
+    maxHeatOther = max(maxHeatOther, heat);
+  }
+  int heatForNext = 1;
+  if (missingHeatThis) {
+    for (size_t k = 0; k < rThis.size(); k++) {
+      int heat = rThis[k]->getDCI().getInt("Heat");
+      if (heat == 0) {
+        if (uniqueHeatThis && maxHeatThis > 0)
+          heat = maxHeatThis; // Some runners are missing the heat info. Fill in.
+        else {
+          // If maxHeatthis> 0, data somehow corrupted:
+          // Some runners have heat, but not unqiue, 
+          // others are missing. Heats not well defined.
+          heat = maxHeatThis + 1; 
+        }
+      }
+      heatForNext = max(heatForNext, heat+1);
+      rThis[k]->getDI().setInt("Heat", heat);
+    }
+  }
+
+  if (missingHeatOther) {
+    for (size_t k = 0; k < r.size(); k++) {
+      int heat = r[k]->getDCI().getInt("Heat");
+      if (heat == 0) {
+        if (maxHeatOther == 0)
+          heat = heatForNext; // No runner had a heat, set to next heat
+        else if (uniqueHeatOther)
+          heat = maxHeatOther; // Some runner missing the heat. Use the defined heat.
+        else
+          heat = maxHeatOther + 1; // Data corrupted, see above. Make a unique heat.
+      }
+      r[k]->getDI().setInt("Heat", heat);
+    }
+  }
+  // Write back
+  for (size_t k = 0; k < t.size(); k++) {
+    t[k]->synchronize(true); //Synchronizes runners also  
+  }
+  for (size_t k = 0; k < r.size(); k++) {
+    r[k]->synchronize(true);
+  }
+  for (size_t k = 0; k < rThis.size(); k++) {
+    rThis[k]->synchronize(true);
   }
 
   oe->removeClass(classIdSec);
@@ -1846,16 +1917,18 @@ public:
   }
 
   static int evaluateResult(const oAbstractRunner &r) {
+    int baseRes;
     if (r.getInputStatus() == StatusOK) {
       int t = r.getInputPlace();
       if (t > 0)
-        return t;
+        baseRes = t;
       else
-        return 99999;
+        baseRes = 99999;
     }
     else {
-      return 99999 + r.getInputStatus();
+      baseRes = 99999 + r.getInputStatus();
     }
+    return r.getDCI().getInt("Heat") + 1000 * baseRes;
   }
 
   static int evaluatePoints(const oAbstractRunner &r) {
@@ -2012,7 +2085,9 @@ void ClassSplit::valueEvenSplit(const vector<int> &parts, vector< pair<int, int>
   }
 
   vector<int> count(parts.size());
-  
+  bool odd = true;
+  bool useRandomAssign = false;
+
   for (size_t k = 0; k < valueId.size(); ) {
     vector<int> distr;
 
@@ -2025,7 +2100,16 @@ void ClassSplit::valueEvenSplit(const vector<int> &parts, vector< pair<int, int>
       idSplit[valueId[k++].second] = parts.size()-1; // Out of space, use last for rest
     }
     else {
-      permute(distr);
+      if (useRandomAssign) {
+        permute(distr); //Random assignment to groups
+      }
+      else {
+        // Use reverse/forward distribution. Swedish SM rules
+        if (odd) 
+          reverse(distr.begin(), distr.end());
+        odd = !odd;
+      }
+
       for (size_t j = 0; j < parts.size(); j++) {
         if (count[j] < parts[j]) {
           ++count[j];
@@ -2042,6 +2126,8 @@ void oClass::splitClass(ClassSplitMethod method, const vector<int> &parts, vecto
   if (parts.size() <= 1)
     return;
 
+  bool defineHeats = method == SplitRankEven || method == SplitResultEven;
+  
   ClassSplit cc;
   vector<pTeam> t;
   vector<pRunner> r;
@@ -2064,6 +2150,10 @@ void oClass::splitClass(ClassSplitMethod method, const vector<int> &parts, vecto
   outClassId.resize(parts.size());
   pcv[0] = this;
   outClassId[0] = getId();
+  
+  pcv[0]->getDI().setInt("Heat", defineHeats ? 1 : 0);
+  pcv[0]->synchronize(true);
+  
   int lastSI = getDI().getInt("SortIndex");
   for (size_t k=1; k<parts.size(); k++) {
     char bf[16];
@@ -2071,11 +2161,15 @@ void oClass::splitClass(ClassSplitMethod method, const vector<int> &parts, vecto
     pcv[k] = oe->addClass(getName() + MakeDash(bf), getCourseId());
     if (pcv[k]) {
       // Find suitable sort index
-      //int si = pcv[k]->getSortIndex(getDCI().getInt("SortIndex"));
       lastSI = pcv[k]->getSortIndex(lastSI + 1);
+      
+      memcpy(pcv[k]->oData, oData, sizeof(oData));
+      
       pcv[k]->getDI().setInt("SortIndex", lastSI);
+      pcv[k]->getDI().setInt("Heat", defineHeats ? k+1 : 0);
       pcv[k]->synchronize();
     }
+
     outClassId[k] = pcv[k]->getId();
   }
 
@@ -2084,10 +2178,13 @@ void oClass::splitClass(ClassSplitMethod method, const vector<int> &parts, vecto
 
   for (size_t k = 0; k < t.size(); k++) {
     pTeam it = t[k];
-    it->Class = pcv[cc.getClassIndex(*it)];
+    int clsIx = cc.getClassIndex(*it);
+    it->Class = pcv[clsIx];
     it->updateChanged();
     for (size_t k=0;k<it->Runners.size();k++) {
       if (it->Runners[k]) {
+        if (defineHeats)
+          it->getDI().setInt("Heat", clsIx+1);
         it->Runners[k]->Class = it->Class;
         it->Runners[k]->updateChanged();
       }
@@ -2097,7 +2194,10 @@ void oClass::splitClass(ClassSplitMethod method, const vector<int> &parts, vecto
 
   for (size_t k = 0; k < r.size(); k++) {
     pRunner it = r[k];
-    it->Class = pcv[cc.getClassIndex(*it)];
+    int clsIx = cc.getClassIndex(*it);
+    it->Class = pcv[clsIx];
+    if (defineHeats)
+      it->getDI().setInt("Heat", clsIx+1);
     it->updateChanged();
     it->synchronize();  
   }
@@ -3915,12 +4015,44 @@ void oClass::drawSeeded(ClassSeedMethod seed, int leg, int firstStart,
     for (size_t k = 1; k < startOrder.size(); k++) {
       int idMe = startOrder[k]->getClubId();
       if (idMe != 0 && idMe == startOrder[k-1]->getClubId()) {
+        // Make sure the runner with worst ranking is moved back. (Swedish SM rules)
+        if (startOrder[k-1]->getRanking() > startOrder[k]->getRanking())
+          swap(startOrder[k-1], startOrder[k]);
+
+        vector<pair<int, pRunner> > rqueue;
+        rqueue.push_back(make_pair(k, startOrder[k]));
         for (size_t j = k + 1; j < startOrder.size(); j++) {
-          if (startOrder[j]->getClubId() != idMe) {
-            swap(startOrder[j], startOrder[k]);
+          if (idMe != startOrder[j]->getClubId()) {
+            swap(startOrder[j], startOrder[k]); // k-1 now has a non-club nb behind
+            rqueue.push_back(make_pair(j, pRunner(0)));
+            // Shift the queue
+            for (size_t q = 1; q < rqueue.size(); q++) {
+              startOrder[rqueue[q].first] = rqueue[q-1].second;
+            }
             break;
           }
+          else {
+            rqueue.push_back(make_pair(j, startOrder[j]));
+          }
+
         }
+        /*for (size_t j = k + 1; j < startOrder.size(); j++) {
+          swap(startOrder[j], startOrder[j-1]);
+          if (idMe != startOrder[j]->getClubId() && j+1 < startOrder.size() &&
+              idMe != startOrder[j+1]->getClubId()) {
+            break;
+          }
+        }*/
+      }
+    }
+    // Handle special case where the two last have same club.
+    int last = startOrder.size() - 1;
+    if (last >= 3) {
+      int lastClub = startOrder[last]->getClubId();
+      if ( lastClub == startOrder[last-1]->getClubId() &&
+           lastClub != startOrder[last-2]->getClubId() &&
+           lastClub != startOrder[last-3]->getClubId() ) {
+        swap(startOrder[last-1], startOrder[last-2]);
       }
     }
   }

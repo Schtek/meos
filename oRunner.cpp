@@ -400,10 +400,14 @@ void oAbstractRunner::setClassId(int id, bool isManualUpdate) {
     }
     if (pc) {
       pc->clearCache(true);
+      if (isManualUpdate) {
+        setFlag(FlagUpdateClass, true);
+        // Update heat data
+        int heat = pc->getDCI().getInt("Heat");
+        if (heat != 0)
+          getDI().setInt("Heat", heat);
+      }
     }
-    if (isManualUpdate)
-      setFlag(FlagUpdateClass, true);
-
     updateChanged();
   }
 }
@@ -466,8 +470,14 @@ void oRunner::setClassId(int id, bool isManualUpdate)
       }
       tSplitRevision = 0;
       updateChanged();
-      if (isManualUpdate)
+      if (isManualUpdate && pc) {
         setFlag(FlagUpdateClass, true);
+        // Update heat data
+        int heat = pc->getDCI().getInt("Heat");
+        if (heat != 0)
+          getDI().setInt("Heat", heat);
+
+      }
     }
   }
 }
@@ -3667,23 +3677,35 @@ void oRunner::printSplits(gdioutput &gdi) const {
   bool withAnalysis = (oe->getDI().getInt("Analysis") & 1) == 0;
   bool withSpeed = (oe->getDI().getInt("Analysis") & 2) == 0;
   bool withResult = (oe->getDI().getInt("Analysis") & 4) == 0;
+  const bool wideFormat = oe->getPropertyInt("WideSplitFormat", 0) == 1;
+  const int numCol = 4;
 
   if (Class && Class->getNoTiming()) {
     withResult = false;
     withAnalysis = false;
   }
 
-  gdi.setCX(10);
+  gdiFonts head = boldText;
+  gdiFonts normal = fontSmall;
+  gdiFonts bnormal = boldSmall;
+  if (wideFormat) {
+    head = boldLarge;
+    normal = normalText;
+    bnormal = boldText;
+  }
+  else {
+    gdi.setCX(10);
+  }
   gdi.fillDown();
-  gdi.addStringUT(boldText, oe->getName());
-  gdi.addStringUT(fontSmall, oe->getDate());
+  gdi.addStringUT(head, oe->getName());
+  gdi.addStringUT(normal, oe->getDate());
   gdi.dropLine(0.5);
   pCourse pc = getCourse(true);
 
-  gdi.addStringUT(boldSmall, getName() + ", " + getClass());
-  gdi.addStringUT(fontSmall, getClub());
+  gdi.addStringUT(bnormal, getName() + ", " + getClass());
+  gdi.addStringUT(normal, getClub());
   gdi.dropLine(0.5);
-  gdi.addStringUT(fontSmall, lang.tl("Start: ") + getStartTimeS() + lang.tl(", Mål: ") + getFinishTimeS());
+  gdi.addStringUT(normal, lang.tl("Start: ") + getStartTimeS() + lang.tl(", Mål: ") + getFinishTimeS());
   string statInfo = lang.tl("Status: ") + getStatusS() + lang.tl(", Tid: ") + getRunningTimeS();
   if (withSpeed && pc && pc->getLength() > 0) {
     int kmt = (getRunningTime() * 1000) / pc->getLength();
@@ -3693,7 +3715,7 @@ void oRunner::printSplits(gdioutput &gdi) const {
     if (pc->legLengths.empty() || *max_element(pc->legLengths.begin(), pc->legLengths.end()) <= 0)
       withSpeed = false; // No leg lenghts available
   }
-  gdi.addStringUT(fontSmall, statInfo);
+  gdi.addStringUT(normal, statInfo);
 
   int cy = gdi.getCY()+4;
   int cx = gdi.getCX();
@@ -3705,7 +3727,6 @@ void oRunner::printSplits(gdioutput &gdi) const {
       spMax = max(spMax, getSplitTime(n, false));
       totMax = max(totMax, getPunchTime(n, false));
     }
-
   }
   bool moreThanHour = max(totMax, getRunningTime()) >= 3600;
   bool moreThanHourSplit = spMax >= 3600;
@@ -3715,6 +3736,8 @@ void oRunner::printSplits(gdioutput &gdi) const {
   const int c3 = c2 + 10;
   const int c4 = moreThanHour ? c3+153 : c3+133;
   const int c5 = withSpeed ? c4 + 80 : c4;
+  const int baseCX = cx;
+  const int colDeltaX = c5 + 32;
 
   char bf[256];
   int lastIndex = -1;
@@ -3735,19 +3758,26 @@ void oRunner::printSplits(gdioutput &gdi) const {
     }
   }
 
+  set<int> headerPos;
+
   if (Card && pc) {
     bool hasRogaining = pc->hasRogaining();
 
-    gdi.addString("", cy, cx, italicSmall, "Kontroll");
-    gdi.addString("", cy, cx+c2-55, italicSmall, "Tid");
-    //gdi.addString("", cy, cx+c3, boldSmall, "Tidpunkt");
-    //gdi.addString("", cy, cx+c4, boldSmall|textRight, "Summa");
-    if (withSpeed)
-      gdi.addString("", cy, cx+c5, italicSmall|textRight, "min/km");
+    const int cyHead = cy;
     cy += int(gdi.getLineHeight()*0.9);
+    int xcol = 0;
+    int baseY = cy;
 
     oPunchList &p=Card->punches;
     for (oPunchList::iterator it=p.begin();it!=p.end();++it) {
+      if (headerPos.count(cx) == 0) {
+        headerPos.insert(cx);
+        gdi.addString("", cyHead, cx, italicSmall, "Kontroll");
+        gdi.addString("", cyHead, cx+c2-55, italicSmall, "Tid");
+        if (withSpeed)
+          gdi.addString("", cyHead, cx+c5, italicSmall|textRight, "min/km");
+      }
+
       bool any = false;
       if (it->tRogainingIndex>=0) {
         const pControl c = pc->getControl(it->tRogainingIndex);
@@ -3858,11 +3888,34 @@ void oRunner::printSplits(gdioutput &gdi) const {
         }
       }
 
-      if (any)
-        cy+=int(gdi.getLineHeight()*0.9);
+      if (any) {
+        if (!wideFormat) {
+          cy+=int(gdi.getLineHeight()*0.9);
+
+        }
+        else {
+          if (++xcol < numCol) {
+            cx += colDeltaX;
+          }
+          else {
+            xcol = 0;
+            cy += int(gdi.getLineHeight()*1.1);
+            cx = baseCX;
+          }
+        }
+      }
     }
     gdi.dropLine();
-
+    int deltaY = int(gdi.getLineHeight() * 0.3);
+    for (int i = 0; i < numCol; i++) {
+      RECT rc;
+      rc.top = baseY + deltaY;
+      rc.bottom = cy + deltaY;
+      rc.left = baseCX + colDeltaX*(i+1) + 28;
+      rc.right = rc.left + 3;
+      gdi.addRectangle(rc, colorDarkBlue);
+    }
+    
     if (withAnalysis) {
       vector<string> misses;
       int last = ctrl.size();
@@ -3885,15 +3938,15 @@ void oRunner::printSplits(gdioutput &gdi) const {
         }
 
         if (count < 3)
-          gdi.addString("", fontSmall, "Underlag saknas för bomanalys.");
+          gdi.addString("", normal, "Underlag saknas för bomanalys.");
         else
-          gdi.addString("", fontSmall, "Inga bommar registrerade.");
+          gdi.addString("", normal, "Inga bommar registrerade.");
       }
       else {
         string out = lang.tl("Tidsförluster (kontroll-tid): ");
         for (size_t k = 0; k<misses.size(); k++) {
-          if (out.length() > (withSpeed ? 40u : 35u)) {
-            gdi.addStringUT(fontSmall, out);
+          if (out.length() > (wideFormat ? 80u : (withSpeed ? 40u : 35u))) {
+            gdi.addStringUT(normal, out);
             out.clear();
           }
           out += misses[k];
@@ -3929,11 +3982,11 @@ void oRunner::printSplits(gdioutput &gdi) const {
       gdi.fillRight();
       gdi.pushX();
       if (!place.empty()) 
-        gdi.addString("", boldSmall, "Placering:");
+        gdi.addString("", bnormal, "Placering:");
       else
-        gdi.addString("", boldSmall, "Resultat:");
+        gdi.addString("", bnormal, "Resultat:");
       gdi.fillDown();
-      gdi.addString("", fontSmall,  place + timestatus + after);
+      gdi.addString("", normal,  place + timestatus + after);
       gdi.popX();
     }
   }

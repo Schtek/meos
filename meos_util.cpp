@@ -1038,8 +1038,8 @@ int extractAnyNumber(const string &str, string &prefix, string &suffix)
     if (isdigit(ptr[k])) {
       prefix = str.substr(0, k);
       int num = atoi(str.c_str() + k);
-      while(k<str.length() && isdigit(str[++k]));
-      suffix = str.substr(k);
+      while(k<str.length() && (str[++k] & 128) == 0 && isdigit(str[k]));
+        suffix = str.substr(k);
 
       return num;
     }
