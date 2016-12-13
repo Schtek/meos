@@ -188,9 +188,14 @@ class ButtonInfo : public BaseInfo
 private:
   bool originalState;
   bool isEditControl;
+  bool checked;
+  bool *updateLastData;
+  void synchData() const {if (updateLastData) *updateLastData = checked;}
+  
 public:
   ButtonInfo(): callBack(0), hWnd(0), AbsPos(false), fixedRightTop(false),
-            flags(0), storedFlags(0), originalState(false), isEditControl(false), isCheckbox(false){}
+            flags(0), storedFlags(0), originalState(false), isEditControl(false),
+            isCheckbox(false), checked(false), updateLastData(0) {}
 
   ButtonInfo &isEdit(bool e) {isEditControl=e; return *this;}
 
@@ -206,6 +211,9 @@ public:
   bool isCheckbox;
   bool isDefaultButton() const {return (flags&1)==1;}
   bool isCancelButton() const {return (flags&2)==2;}
+
+  ButtonInfo &setSynchData(bool *variable) {updateLastData = variable; return *this;}
+
 
   void moveButton(gdioutput &gdi, int xp, int yp);
   void getDimension(gdioutput &gdi, int &w, int &h);
@@ -238,6 +246,8 @@ public:
   InputInfo &setPassword(bool pwd);
   
   HWND getControlWindow() const {return hWnd;}
+  
+  InputInfo &setSynchData(string *variable) {updateLastData = variable; return *this;}
 
   int getX() const {return xp;}
   int getY() const {return yp;}
@@ -245,7 +255,8 @@ public:
 private:
   HWND hWnd;
   GUICALLBACK callBack;
-
+  void synchData() const {if (updateLastData) *updateLastData = text;}
+  string *updateLastData;
   int xp;
   int yp;
   double width;
@@ -267,25 +278,27 @@ public:
   ListBoxInfo() : hWnd(0), callBack(0), IsCombo(false), index(-1),
               writeLock(false), ignoreCheck(false), isEditControl(true),
               originalProc(0), lbiSync(0), multipleSelection(false), 
-              xp(0), yp(0), width(0), height(0), data(0), lastTabStop(0) {}
+              xp(0), yp(0), width(0), height(0), data(0), lastTabStop(0),
+              updateLastData(0) {}
   string text;
   size_t data;
   int index;
-
   bool changed() const {return text!=original;}
   void ignore(bool ig) {ignoreCheck=ig;}
   ListBoxInfo &isEdit(bool e) {isEditControl=e; return *this;}
   HWND getControlWindow() const {return hWnd;}
 
   void copyUserData(ListBoxInfo &userLBI) const;
-
+  ListBoxInfo &setSynchData(int *variable) {updateLastData = variable; return *this;}
   int getWidth() const {return int(width);}
   int getX() const {return xp;}
   int getY() const {return yp;}
   bool isCombo() const {return IsCombo;}
 private:
+  void syncData() const {if (updateLastData) *updateLastData = data;}
   bool IsCombo;
-
+  int *updateLastData;
+  
   GUICALLBACK callBack;
   
   int xp;

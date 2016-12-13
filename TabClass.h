@@ -82,6 +82,18 @@ class TabClass :
   bool hasWarnedDirect;
   bool tableMode;
   DrawMethod lastDrawMethod;
+  int lastSeedMethod;
+  bool lastSeedPreventClubNb;
+  bool lastSeedReverse;
+  string lastSeedGroups;
+  int lastPairSize;
+  string lastFirstStart;
+  string lastInterval;
+  string lastNumVac;
+  string lastScaleFactor;
+  string lastMaxAfter;
+
+  bool lastHandleBibs;
   // Generate a table with class settings
   void showClassSettings(gdioutput &gdi);
 

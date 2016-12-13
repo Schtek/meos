@@ -909,6 +909,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\speakermonitor.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\speakermonitor.h"
+				>
+			</File>
+			<File
 				RelativePath="SportIdent.cpp"
 				>
 				<FileConfiguration

@@ -64,7 +64,7 @@
 #include "Table.h"
 
 //Version of database
-int oEvent::dbVersion = 78;
+int oEvent::dbVersion = 79;
 
 class RelativeTimeFormatter : public oDataDefiner {
   string name;
@@ -281,7 +281,7 @@ oEvent::oEvent(gdioutput &gdi):oBase(0), gdibase(gdi)
   oRunnerData->addVariableInt("BirthYear", oDataContainer::oIS32, "Födelseår");
   oRunnerData->addVariableString("Bib", 8, "Nummerlapp").zeroSortPadding = 5;
   oRunnerData->addVariableInt("Rank", oDataContainer::oIS16U, "Ranking");
-  oRunnerData->addVariableInt("VacRank", oDataContainer::oIS16U, "Vak. ranking");
+  //oRunnerData->addVariableInt("VacRank", oDataContainer::oIS16U, "Vak. ranking");
 
   oRunnerData->addVariableDate("EntryDate", "Anm. datum");
 
@@ -304,6 +304,7 @@ oEvent::oEvent(gdioutput &gdi):oBase(0), gdibase(gdi)
   oRunnerData->addVariableInt("TransferFlags", oDataContainer::oIS32, "Överföring");
   oRunnerData->addVariableInt("Shorten", oDataContainer::oIS8U, "Avkortning");
   oRunnerData->addVariableInt("EntrySource", oDataContainer::oIS32, "Källa");
+  oRunnerData->addVariableInt("Heat", oDataContainer::oIS8U, "Heat");
 
   oControlData=new oDataContainer(oControl::dataSize);
   oControlData->addVariableInt("TimeAdjust", oDataContainer::oIS32, "Tidsjustering");
@@ -387,6 +388,7 @@ oEvent::oEvent(gdioutput &gdi):oBase(0), gdibase(gdi)
 
   oClassData->addVariableEnum("BibMode", 1, "Nummerlappshantering", bibMode);
   oClassData->addVariableInt("Unordered", oDataContainer::oIS8U, "Oordnade parallella");
+  oClassData->addVariableInt("Heat", oDataContainer::oIS8U, "Heat");
 
   oTeamData = new oDataContainer(oTeam::dataSize);
   oTeamData->addVariableCurrency("Fee", "Anm. avgift");
@@ -404,6 +406,7 @@ oEvent::oEvent(gdioutput &gdi):oBase(0), gdibase(gdi)
   oTeamData->addVariableInt("PointAdjust", oDataContainer::oIS32, "Poängjustering");
   oTeamData->addVariableInt("TransferFlags", oDataContainer::oIS32, "Överföring");
   oTeamData->addVariableInt("EntrySource", oDataContainer::oIS32, "Källa");
+  oTeamData->addVariableInt("Heat", oDataContainer::oIS8U, "Heat");
 
   generalResults.push_back(GeneralResultCtr("atcontrol", "Result at a control", new ResultAtControl()));
   generalResults.push_back(GeneralResultCtr("totatcontrol", "Total/team result at a control", new TotalResultAtControl()));
@@ -1556,6 +1559,11 @@ pRunner oEvent::addRunner(const string &name, int clubId, int classId,
   
   if (pr->getDI().getInt("EntryDate") == 0)
     pr->getDI().setDate("EntryDate", getLocalDate());
+  if (pr->Class) {
+    int heat = pr->Class->getDCI().getInt("Heat");
+    if (heat != 0)
+      pr->getDI().setInt("Heat", heat);
+  }
 
   pr->updateChanged();
 
@@ -1594,6 +1602,12 @@ pRunner oEvent::addRunnerFromDB(const pRunner db_r,
   pRunner pr = addRunner(r, true);
   if (pr->getDI().getInt("EntryDate") == 0)
     pr->getDI().setDate("EntryDate", getLocalDate());
+  
+  if (r.Class) {
+    int heat = r.Class->getDCI().getInt("Heat");
+    if (heat != 0)
+      pr->getDI().setInt("Heat", heat);
+  }
 
   pr->updateChanged();
 

@@ -1533,6 +1533,13 @@ bool SportIdent::GetCard9Data(BYTE *data, SICard &card)
       AnalysePunch(44*4 + data + 4*k, card.Punch[k].Time, card.Punch[k].Code);
     }
   }
+  else if (series == 6) {
+	  // tCard (Pavel Kazakov)
+    card.nPunch=min(int(data[22]), 25);
+    for(unsigned k=0;k<card.nPunch;k++) {
+      AnalyseTPunch(14*4 + data + 8*k, card.Punch[k].Time, card.Punch[k].Code);
+    }
+  }
   else if (series == 15) {
     // Card 10, 11, SIAC
     card.nPunch=min(int(data[22]), 128);
@@ -1544,6 +1551,28 @@ bool SportIdent::GetCard9Data(BYTE *data, SICard &card)
     return false;
 
   return true;
+}
+
+// Method by Pavel Kazakov.
+void SportIdent::AnalyseTPunch(BYTE *data, DWORD &time, DWORD &control) {
+  if (*LPDWORD(data)!=0xEEEEEEEE) {
+    BYTE cn=data[0];
+    BYTE dt1=data[3];
+    BYTE dt0=data[4];
+    BYTE pth=data[5];
+    BYTE ptl=data[6];
+
+//    BYTE year = (dt1 >> 2) & 0x0F;
+//    BYTE month = ((dt1 & 0x03) << 2) + (dt0 >> 6);
+//    BYTE day = (dt0 >> 1) & 0x1F;
+
+    control=cn;
+    time=MAKEWORD(ptl, pth)+3600*12*(dt0&0x1);
+  }
+  else {
+    control=-1;
+    time=0;
+  }
 }
 
 bool SportIdent::GetCard6Data(BYTE *data, SICard &card)
