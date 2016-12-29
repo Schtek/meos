@@ -2501,7 +2501,7 @@ void oClass::assignTypeFromName(){
 
     for (map<string, ClassMetaType>::iterator it = types.begin(); it != types.end(); ++it) {
       if (it->second == mt) {
-        setType(it->first);
+        setType(lang.tl(it->first));
         return;
       }
     }
