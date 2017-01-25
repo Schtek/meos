@@ -1,6 +1,6 @@
 /************************************************************************
     MeOS - Orienteering Software
-    Copyright (C) 2009-2016 Melin Software HB
+    Copyright (C) 2009-2017 Melin Software HB
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -1605,19 +1605,27 @@ pRunner IOF30Interface::readPerson(gdioutput &gdi, const xmlobject &person) {
   
   if (pname) {
     string given, family;
-    name = getFirst(pname.getObjectString("Given", given), 2)+ " " +pname.getObjectString("Family", family);
+    //name = getFirst(pname.getObjectString("Given", given), 2)+ " " +pname.getObjectString("Family", family);
+    name = pname.getObjectString("Family", family) + ", " + getFirst(pname.getObjectString("Given", given), 2);
   }
   else {
     name = lang.tl("N.N.");
   }
 
-  int pid = person.getObjectInt("Id");
-  int extId = pid;
-
+  string sid;
+  person.getObjectString("Id", sid);
+  __int64 extId = oBase::converExtIdentifierString(sid);
+  int pid = oBase::idFromExtId(extId);
   pRunner r = 0;
 
   if (pid) {
     r = oe.getRunner(pid, 0);
+    while (r) { // Check that the exact match is OK
+      if (extId != r->getExtIdentifier())
+        break;
+      pid++;
+      r = oe.getRunner(pid, 0);
+    }
 
     if (r) {
       // Check that a with this id runner does not happen to exist with a different source
@@ -1676,7 +1684,10 @@ pRunner IOF30Interface::readPerson(gdioutput &gdi, const xmlobject &person) {
 pClub IOF30Interface::readOrganization(gdioutput &gdi, const xmlobject &xclub, bool saveToDB) {
   if (!xclub)
     return 0;
-  int clubId = xclub.getObjectInt("Id");
+  string clubIdS;
+  xclub.getObjectString("Id", clubIdS);
+  __int64 extId = oBase::converExtIdentifierString(clubIdS);
+  int clubId = oBase::idFromExtId(extId);
   string name, shortName;
   xclub.getObjectString("Name", name);
   xclub.getObjectString("ShortName", shortName);
@@ -1702,7 +1713,7 @@ pClub IOF30Interface::readOrganization(gdioutput &gdi, const xmlobject &xclub, b
 
   pc->setName(name);
 
-  pc->setExtIdentifier(clubId);
+  pc->setExtIdentifier(extId);
 
   oDataInterface DI=pc->getDI();
 
@@ -1828,13 +1839,17 @@ void IOF30Interface::writeAmount(xmlparser &xml, const char *tag, int amount) co
   }
 }
 
-void IOF30Interface::writeAssignedFee(xmlparser &xml, const oDataConstInterface &dci) const {
+void IOF30Interface::writeAssignedFee(xmlparser &xml, const oDataConstInterface &dci, int paidForCard) const {
   int fee = dci.getInt("Fee");
   int taxable = dci.getInt("Taxable");
   int paid = dci.getInt("Paid");
 
   if (fee == 0 && taxable == 0 && paid == 0)
     return;
+
+  if (paid >= paidForCard) {
+    paid -= paidForCard; // Included in card service fee
+  }
 
   xml.startTag("AssignedFee");
 
@@ -1849,10 +1864,10 @@ void IOF30Interface::writeAssignedFee(xmlparser &xml, const oDataConstInterface 
   xml.endTag();
 }
 
-void IOF30Interface::writeRentalCardService(xmlparser &xml, int cardFee) const {
+void IOF30Interface::writeRentalCardService(xmlparser &xml, int cardFee, bool paid) const {
   xml.startTag("ServiceRequest"); {
 
-    xml.startTag("Service"); {
+    xml.startTag("Service", "type", "RentalCard"); {
       xml.write("Name", "Card Rental");
     }
     xml.endTag();
@@ -1865,6 +1880,10 @@ void IOF30Interface::writeRentalCardService(xmlparser &xml, int cardFee) const {
         writeAmount(xml, "Amount", cardFee);
       }
       xml.endTag();
+
+      if (paid) {
+        writeAmount(xml, "PaidAmount", cardFee);
+      }
     }
     xml.endTag();
   }
@@ -2309,7 +2328,7 @@ pCourse IOF30Interface::haveSameCourse(const vector<pRunner> &r) const {
 
 void IOF30Interface::writeClass(xmlparser &xml, const oClass &c) {
   xml.startTag("Class");
-  xml.write("Id", c.getExtIdentifier()); // Need to call initClassId first
+  xml.write("Id", c.getExtIdentifierString()); // Need to call initClassId first
   xml.write("Name", c.getName());
 
   oClass::ClassStatus stat = c.getClassStatus();
@@ -2553,13 +2572,19 @@ void IOF30Interface::writeResult(xmlparser &xml, const oRunner &rPerson, const o
   if (rPerson.getCardNo() > 0)
     xml.write("ControlCard", rPerson.getCardNo());
 
-  writeAssignedFee(xml, rPerson.getDCI());
-
-  int cardFee = rPerson.getDCI().getInt("CardFee");
-  if (cardFee > 0)
-    writeRentalCardService(xml, cardFee);
+  writeFees(xml, rPerson);
 
   xml.endTag();
+}
+
+void IOF30Interface::writeFees(xmlparser &xml, const oRunner &r) const {
+  int cardFee = r.getDCI().getInt("CardFee");
+  bool paidCard = r.getDCI().getInt("Paid") >= cardFee;
+  
+  writeAssignedFee(xml, r.getDCI(), paidCard ? cardFee : 0);
+
+  if (cardFee > 0) 
+    writeRentalCardService(xml, cardFee, paidCard);
 }
 
 void IOF30Interface::writeTeamResult(xmlparser &xml, const oTeam &t, bool hasInputTime) {
@@ -2580,7 +2605,7 @@ void IOF30Interface::writeTeamResult(xmlparser &xml, const oTeam &t, bool hasInp
       writePersonResult(xml, *t.getRunner(k), true, true, hasInputTime);
   }
 
-  writeAssignedFee(xml, t.getDCI());
+  writeAssignedFee(xml, t.getDCI(), 0);
   xml.endTag();
 }
 
@@ -2619,7 +2644,7 @@ int IOF30Interface::getStageNumber() {
 
 void IOF30Interface::writeEvent(xmlparser &xml) {
   xml.startTag("Event");
-  xml.write64("Id", oe.getExtIdentifier());
+  xml.write("Id", oe.getExtIdentifierString());
   xml.write("Name", oe.getName());
   xml.startTag("StartTime");
   xml.write("Date", oe.getDate());
@@ -2647,8 +2672,8 @@ void IOF30Interface::writePerson(xmlparser &xml, const oRunner &r) {
   xml.startTag("Person");
 
   __int64 id = r.getExtIdentifier();
-  if (id > 0)
-    xml.write64("Id", id);
+  if (id != 0)
+    xml.write("Id", r.getExtIdentifierString());
 
   xml.startTag("Name");
   xml.write("Family", r.getFamilyName());
@@ -2673,10 +2698,13 @@ void IOF30Interface::writeClub(xmlparser &xml, const oClub &c, bool writeExtende
     xml.startTag("Organisation");
   }
   __int64 id = c.getExtIdentifier();
-  if (id > 0)
-    xml.write64("Id", id);
+  if (id != 0)
+    xml.write("Id", c.getExtIdentifierString());
 
   xml.write("Name", c.getName());
+  string sname = c.getDCI().getString("ShortName");
+  if (!sname.empty())
+    xml.write("ShortName", sname);
 
   string ctry = c.getDCI().getString("Country");
   string nat = c.getDCI().getString("Nationality");
@@ -2685,6 +2713,8 @@ void IOF30Interface::writeClub(xmlparser &xml, const oClub &c, bool writeExtende
     if (ctry.empty()) {
       if (nat == "SWE")
         ctry = "Sweden";
+      else if (nat == "FR" || nat == "FRA")
+        ctry = "France";
       else
         ctry = nat;
     }
@@ -2884,7 +2914,7 @@ void IOF30Interface::writeTeamStart(xmlparser &xml, const oTeam &t) {
       writePersonStart(xml, *t.getRunner(k), true, true);
   }
 
-  writeAssignedFee(xml, t.getDCI());
+  writeAssignedFee(xml, t.getDCI(), 0);
   xml.endTag();
 }
 
@@ -2919,12 +2949,7 @@ void IOF30Interface::writeStart(xmlparser &xml, const oRunner &r,
   if (r.getCardNo() > 0)
     xml.write("ControlCard", r.getCardNo());
 
-  writeAssignedFee(xml, r.getDCI());
-
-  int cardFee = r.getDCI().getInt("CardFee");
-
-  if (cardFee > 0)
-    writeRentalCardService(xml, cardFee);
+  writeFees(xml, r);
 
   xml.endTag();
 }
@@ -2949,8 +2974,9 @@ bool IOF30Interface::readXMLCompetitorDB(const xmlobject &xCompetitor) {
 
   if (!person) return false;
 
-  int pid = person.getObjectInt("Id");
-
+  string pidS;
+  person.getObjectString("Id", pidS);
+  long long pid = oBase::converExtIdentifierString(pidS);
   xmlobject pname = person.getObject("Name");
   if (!pname) return false;
 
@@ -2980,7 +3006,8 @@ bool IOF30Interface::readXMLCompetitorDB(const xmlobject &xCompetitor) {
   if (given.empty() || family.empty())
     return false;
 
-  string name(given+" "+family);
+  //string name(given+" "+family);
+  string name(family + ", " + given);
 
   char sex[2];
   person.getObjectString("sex", sex, 2);
@@ -3036,9 +3063,11 @@ void IOF30Interface::writeXMLCompetitorDB(xmlparser &xml, const RunnerDBEntry &r
     xml.startTag("Person", "sex", s);
 
   long long pid = rde.getExtId();
-  if (pid > 0)
-    xml.write64("Id", pid);
-
+  if (pid > 0) {
+    char bf[16];
+    oBase::converExtIdentifierString(pid, bf);
+    xml.write("Id", bf);
+  }
   xml.startTag("Name");
   xml.write("Given", rde.getGivenName());
   xml.write("Family", rde.getFamilyName());

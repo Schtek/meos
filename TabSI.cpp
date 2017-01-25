@@ -1,6 +1,6 @@
 /************************************************************************
     MeOS - Orienteering Software
-    Copyright (C) 2009-2016 Melin Software HB
+    Copyright (C) 2009-2017 Melin Software HB
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -2411,14 +2411,14 @@ void TabSI::entryCard(gdioutput &gdi, const SICard &sic)
     pRunner db_r=oe->dbLookUpByCard(sic.CardNumber);
 
     if (db_r) {
-      name=db_r->getName();
+      name=db_r->getNameRaw();
       club=db_r->getClub();
     }
   }
 
   //Else get name from card
   if (name.empty() && (sic.FirstName[0] || sic.LastName[0]))
-    name=string(sic.FirstName)+" "+sic.LastName;
+    name=string(sic.LastName) + ", " + string(sic.FirstName);
 
   gdi.setText("Name", name);
   if (gdi.hasField("Club"))
@@ -2569,7 +2569,7 @@ void TabSI::generateEntryLine(gdioutput &gdi, pRunner r)
     if (r->getCardNo()>0)
       gdi.setText("CardNo", r->getCardNo());
 
-    gdi.setText("Name", r->getName());
+    gdi.setText("Name", r->getNameRaw());
     if (gdi.hasField("Club")) {
       gdi.selectItemByData("Club", r->getClubId());
     }
@@ -2654,11 +2654,18 @@ void TabSI::updateEntryInfo(gdioutput &gdi)
 
 void TabSI::generateSplits(const pRunner r, gdioutput &gdi)
 {
-  gdioutput gdiprint(2.0, gdi.getEncoding(), gdi.getHWND(), splitPrinter);
-  vector<int> mp;
-  r->evaluateCard(true, mp);
-  r->printSplits(gdiprint);
-  gdiprint.print(splitPrinter, oe, false, true);
+  const bool wideFormat = oe->getPropertyInt("WideSplitFormat", 0) == 1;
+  if (wideFormat) {
+    addToPrintQueue(r);
+    while(checkpPrintQueue(gdi));
+  }
+  else {
+    gdioutput gdiprint(2.0, gdi.getEncoding(), gdi.getHWND(), splitPrinter);
+    vector<int> mp;
+    r->evaluateCard(true, mp);
+    r->printSplits(gdiprint);
+    gdiprint.print(splitPrinter, oe, false, true);
+  }
 }
 
 void TabSI::generateStartInfo(gdioutput &gdi, const oRunner &r) {
@@ -3498,4 +3505,38 @@ bool TabSI::writePayMode(gdioutput &gdi, int amount, oRunner &r) {
     r.setPaymentMode(gdi.getSelectedItem("PayMode").first);
   }
   return hasPaid || fixPay;
+}
+
+void TabSI::addToPrintQueue(pRunner r) {
+  unsigned t = GetTickCount();
+  printPunchRunnerIdQueue.push_back(make_pair(t, r->getId()));
+}
+
+bool TabSI::checkpPrintQueue(gdioutput &gdi) {
+  if (printPunchRunnerIdQueue.empty())
+    return false;
+  size_t printLen = oe->getPropertyInt("NumSplitsOnePage", 3);
+  if (printPunchRunnerIdQueue.size() < printLen) {
+    unsigned t = GetTickCount();
+    unsigned diff = abs(int(t - printPunchRunnerIdQueue.front().first))/1000;
+
+    if (diff < (unsigned)oe->getPropertyInt("SplitPrintMaxWait", 60))
+      return false; // Wait a little longer
+  }
+
+  gdioutput gdiprint(2.0, gdi.getEncoding(), gdi.getHWND(), splitPrinter);
+  vector<int> mp;
+  for (size_t m = 0; m < printLen && !printPunchRunnerIdQueue.empty(); m++) {
+    int rid = printPunchRunnerIdQueue.front().second;
+    printPunchRunnerIdQueue.pop_front();
+    pRunner r = oe->getRunner(rid, 0);
+    if (r) {
+      r->evaluateCard(true, mp);
+      r->printSplits(gdiprint);
+    }
+    gdiprint.dropLine(4);
+  }
+  
+  gdiprint.print(splitPrinter, oe, false, true);
+  return true;
 }
