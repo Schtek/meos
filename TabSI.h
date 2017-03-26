@@ -1,7 +1,7 @@
 #pragma once
 /************************************************************************
     MeOS - Orienteering Software
-    Copyright (C) 2009-2016 Melin Software HB
+    Copyright (C) 2009-2017 Melin Software HB
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -61,16 +61,22 @@ private:
   bool printStartInfo;
   bool manualInput;
   PrinterObject splitPrinter;
-
+  list< pair<unsigned, int> > printPunchRunnerIdQueue;
+  void addToPrintQueue(pRunner r);
+  
   vector<PunchInfo> punches;
   vector<SICard> cards;
   vector<string> filterDate;
 
   int runnerMatchedId;
+  bool printErrorShown;
+  void printProtected(gdioutput &gdi, gdioutput &gdiprint);
 
   //Interactive card assign
   SIMode mode;
   int currentAssignIndex;
+
+  void printSIInfo(gdioutput &gdi, const string &port) const;
 
   void assignCard(gdioutput &gdi, const SICard &sic);
   void entryCard(gdioutput &gdi, const SICard &sic);
@@ -166,7 +172,10 @@ protected:
   void clearCompetitionData();
 
 public:
-  
+
+    // Returns true if a repeated check should be done (there is more to print)
+  bool checkpPrintQueue(gdioutput &gdi);
+
   struct StoredStartInfo {
     string storedName;
     string storedCardNo;

@@ -2,7 +2,7 @@
 
 /************************************************************************
     MeOS - Orienteering Software
-    Copyright (C) 2009-2016 Melin Software HB
+    Copyright (C) 2009-2017 Melin Software HB
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -116,6 +116,7 @@ public:
 
   void tableCmd(const char *id) const;
   void setTableText(int editRow, int editCol, const string &text) const;
+  string getTableText(int editRow, int editCol) const;
 
   void setAnswer(const char *ans) const;
   void setFile(const string &file) const;

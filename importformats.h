@@ -1,3 +1,4 @@
+#pragma once
 /************************************************************************
     MeOS - Orienteering Software
     Copyright (C) 2009-2017 Melin Software HB
@@ -20,48 +21,44 @@
 
 ************************************************************************/
 
-#include "stdafx.h"
-#include "gdioutput.h"
+class oEvent;
 
-
-#pragma warning( disable : 4512 )
-class Toolbar {
-  HWND hwndFloater;
-  HWND hwndToolbar;
-
-  HIMAGELIST hImageListDef;
-  HIMAGELIST hImageListMeOS;
-
-  gdioutput &gdi;
-
-  vector<TBBUTTON> btn;
-  vector<string> btn_id;
-  list<string> tooltips;
-  void *data;
-
-  string toolbar_id;
-
-  void processCommand(int id, int code);
-  bool isactivating;
+/** Support for context specific interpretation of import/export data*/
+class ImportFormats {
 public:
+  enum ImportFormatOptions {
+    Default
+  };
 
-  void show();
-  void hide();
-  void activate(bool active);
+  //static void getImportFormats(vector< pair<string, size_t> > &formats);
 
-  HWND getFloater() const;
-  bool isVisible() const;
+  //static int getDefault(oEvent &oe);
 
-  void setData(void *d) {data = d;}
+  enum ExportFormats {
+    IOF30 = 1,
+    IOF203 = 2,
+    OE = 3,
+    HTML = 5
+  };
 
-  void reset();
-  void addButton(const string &id, int imgList, int icon, const string &tooltip);
+  static void getExportFormats(vector< pair<string, size_t> > &types, bool exportFilter);
 
-  void createToolbar(const string &id, const string &title);
-  bool isLoaded(const string &id) const {return toolbar_id == id;}
-  Toolbar(gdioutput &gdi_par);
-  virtual ~Toolbar();
+  static void getExportFilters(bool exportFilters, vector< pair<string, string> > &ext);
 
-  friend LRESULT CALLBACK ToolProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+  static ExportFormats getDefaultExportFormat(oEvent &oe);
+
+  static ExportFormats setExportFormat(oEvent &oe, int raw);
+
+  ImportFormats(int opt) : option((ImportFormatOptions)opt) {}
+
+  ImportFormatOptions getOption() const {
+    return option;
+  }
+
+  static void getOECSVLanguage(vector< pair<string, size_t> > &typeLanguages); 
+  
+  static int getDefaultCSVLanguage(oEvent &oe);
+
+  private:
+    ImportFormatOptions option;
 };
-

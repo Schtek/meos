@@ -247,6 +247,7 @@
     </ClCompile>
     <ClCompile Include="generalresult.cpp" />
     <ClCompile Include="HTMLWriter.cpp" />
+    <ClCompile Include="importformats.cpp" />
     <ClCompile Include="infoserver.cpp" />
     <ClCompile Include="iof30interface.cpp" />
     <ClCompile Include="listeditor.cpp" />

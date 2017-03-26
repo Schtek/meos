@@ -1,6 +1,6 @@
 /************************************************************************
     MeOS - Orienteering Software
-    Copyright (C) 2009-2016 Melin Software HB
+    Copyright (C) 2009-2017 Melin Software HB
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@
 //V31: a
 //V33: abcde
 int getMeosBuild() {
-  string revision("$Rev: 492 $");
+  string revision("$Rev: 543 $");
   return 174 + atoi(revision.substr(5, string::npos).c_str());
 }
 
@@ -38,14 +38,14 @@ int getMeosBuild() {
 //V31: abcde
 //V32: abcdefgh
 //V33: abcdefghij
-//V34: abc
+//V34: abcdfg
 string getMeosDate() {
-  string date("$Date: 2016-12-10 16:33:53 +0100 (lÃ¶, 10 dec 2016) $");
+  string date("$Date: 2017-03-25 20:00:02 +0100 (lÃ¶, 25 mar 2017) $");
   return date.substr(7,10);
 }
 
 string getBuildType() {
-  return "Beta 1"; // No parantheses (...)
+  return ""; // No parantheses (...)
 }
 
 string getMajorVersion() {
@@ -160,7 +160,13 @@ void getSupporters(vector<string> &supp)
   supp.push_back("IK Gandvik, Skara");
   supp.push_back("IK Stern");
   supp.push_back("OK Roslagen");
+  supp.push_back("TSV Malente");
   supp.push_back("Emmaboda Verda OK");
   supp.push_back("KOB ATU Košice");
   supp.push_back("Gävle OK");
+  supp.push_back("Kenneth Gattmalm, Jönköpings OK");
+  supp.push_back("Søllerød OK");
+  supp.push_back("O-travel");
+  supp.push_back("Bengt Bengtsson");
+  supp.push_back("OK Landehof");
 }

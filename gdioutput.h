@@ -1,6 +1,6 @@
 /************************************************************************
     MeOS - Orienteering Software
-    Copyright (C) 2009-2016 Melin Software HB
+    Copyright (C) 2009-2017 Melin Software HB
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -342,7 +342,9 @@ public:
 
   int getButtonHeight() const;
   int scaleLength(int input) const {return int(scale*input + 0.5);}
-  void getPrinterSettings(PrinterObject &po);
+  
+  // Fill in current printer settings
+  void fetchPrinterSettings(PrinterObject &po) const;
 
   void tableCB(ButtonInfo &bu, Table *t);
 

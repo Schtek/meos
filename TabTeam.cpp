@@ -1,6 +1,6 @@
 /************************************************************************
     MeOS - Orienteering Software
-    Copyright (C) 2009-2016 Melin Software HB
+    Copyright (C) 2009-2017 Melin Software HB
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -1199,7 +1199,7 @@ void TabTeam::loadTeamMembers(gdioutput &gdi, int ClassId, int ClubId, pTeam t)
     if (t) {
       pRunner r=t->getRunner(i);
       if (r) {
-        gdi.setText(bf, r->getName())->setExtra(r->getId());
+        gdi.setText(bf, r->getNameRaw())->setExtra(r->getId());
 
         if (hasSI) {
           int cno = r->getCardNo();

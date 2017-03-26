@@ -1,7 +1,7 @@
 #pragma once
 /************************************************************************
     MeOS - Orienteering Software
-    Copyright (C) 2009-2016 Melin Software HB
+    Copyright (C) 2009-2017 Melin Software HB
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -99,10 +99,12 @@ protected:
   bool readOnly;
   int htmlRefresh;
   bool lock; // true while printing
+  bool errorLock; // true while showing error dialog
 public:
   PrintResultMachine *clone() const {
     PrintResultMachine *prm = new PrintResultMachine(*this);
     prm->lock = false;
+    prm->errorLock = false;
     return prm;
   }
   void status(gdioutput &gdi);
@@ -116,6 +118,7 @@ public:
     notShown = true;
     splitAnalysis = true;
     lock = false;
+    errorLock = false;
     readOnly = false;
     doExport = false;
     doPrint = true;
@@ -129,6 +132,7 @@ public:
     notShown = true;
     splitAnalysis = true;
     lock = false;
+    errorLock = false;
     readOnly = true;
     doExport = false;
     doPrint = true;

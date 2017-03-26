@@ -1,6 +1,6 @@
 /************************************************************************
     MeOS - Orienteering Software
-    Copyright (C) 2009-2016 Melin Software HB
+    Copyright (C) 2009-2017 Melin Software HB
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -391,7 +391,7 @@ FixedTabs &gdioutput::getTabs() {
 
 
 
-void gdioutput::getPrinterSettings(PrinterObject &po) {
+void gdioutput::fetchPrinterSettings(PrinterObject &po) const {
   po = *po_default;
 }
 
@@ -4229,8 +4229,8 @@ void gdioutput::drawBoxes(HDC hDC, RECT &rc)
   pos.bottom=rc.bottom;
 
   list<InfoBox>::iterator it=IBox.begin();
-
-  while(it!=IBox.end()) {
+  int maxNumBox = 10;
+  while(it!=IBox.end() && --maxNumBox > 0) {
     drawBox(hDC, *it, pos);
     pos.bottom=pos.top;
     ++it;

@@ -1,6 +1,6 @@
 /************************************************************************
     MeOS - Orienteering Software
-    Copyright (C) 2009-2016 Melin Software HB
+    Copyright (C) 2009-2017 Melin Software HB
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -51,6 +51,7 @@
 #include "prefseditor.h"
 #include "recorder.h"
 #include "testmeos.h"
+#include "importformats.h"
 
 #include <Shellapi.h>
 #include <algorithm>
@@ -629,8 +630,8 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
     }
     else if (bi.id=="Browse") {
       vector< pair<string, string> > ext;
-      ext.push_back(make_pair("IOF (xml)", "*.xml"));
-
+      ext.push_back(make_pair(lang.tl("Databaskälla"), "*.xml;*.csv"));
+      
       string f = gdi.browseForOpen(ext, "xml");
       string id;
       if (!f.empty()) {
@@ -638,18 +639,7 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
         gdi.setText(ii.id, f);
       }
     }
-	else if (bi.id == "BrowseOE") {
-		vector< pair<string, string> > ext;
-		ext.push_back(make_pair("OE (csv)", "*.csv"));
-
-		string f = gdi.browseForOpen(ext, "csv");
-		string id;
-		if (!f.empty()) {
-			InputInfo &ii = dynamic_cast<InputInfo &>(gdi.getBaseInfo(bi.getExtra()));
-			gdi.setText(ii.id, f);
-		}
-	}
-	else if (bi.id=="DBaseIn") {
+    else if (bi.id=="DBaseIn") {
       gdi.clearPage(true);
       gdi.addString("", boldLarge, "Importera löpare och klubbar / distriktsregister");
       gdi.dropLine();
@@ -660,26 +650,17 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       gdi.addInput("ClubFile", "", 40, 0, "Filnamn IOF (xml) med klubbar");
       gdi.dropLine();
       gdi.addButton("Browse", "Bläddra...", CompetitionCB).setExtra("ClubFile");
-	  gdi.popX();
-	  gdi.dropLine(3);
-	  gdi.addInput("CmpFile", "", 40, 0, "Filnamn IOF (xml) med löpare");
-	  gdi.dropLine();
-	  gdi.addButton("Browse", "Bläddra...", CompetitionCB).setExtra("CmpFile");
-	  gdi.popX();
-	  gdi.dropLine(3);
-	  gdi.addInput("OECSVFile", "", 40, 0, "Filename OE (csv) with runners and clubs");
-	  gdi.dropLine();
-	  gdi.addButton("BrowseOE", "Bläddra...", CompetitionCB).setExtra("OECSVFile");
-
-      gdi.dropLine(2);
-
       gdi.popX();
-	  gdi.addCheckbox("Clear", "Nollställ databaser", 0, true);
-	  gdi.addCheckbox("ReverseNames", "Import names as \"surname, first name\"", 0, true);
-	  gdi.dropLine(1.5);
-	  gdi.popX();
-	  gdi.addCheckbox("UseFFCOClubMapping", "Use French Federation of Orienteering mapping", 0, oe->getPropertyString("Language", "English") == "Français");
-	  gdi.dropLine(3);
+      gdi.dropLine(3);
+      gdi.addInput("CmpFile", "", 40, 0, "Filnamn IOF (xml) eller OE (csv) med löpare");
+      gdi.dropLine();
+      gdi.addButton("Browse", "Bläddra...", CompetitionCB).setExtra("CmpFile");
+      gdi.popX();
+
+      gdi.dropLine(3);
+      gdi.popX();
+      gdi.addCheckbox("Clear", "Nollställ databaser", 0, true);
+      gdi.dropLine(3);
 
       gdi.popX();
       gdi.addButton("DoDBaseIn", "Importera", CompetitionCB).setDefault();
@@ -696,16 +677,28 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       gdi.setWaitCursor(true);
       gdi.addString("", 0, "Importerar...");
       bool clear = gdi.isChecked("Clear");
-	  bool reverseNames = gdi.isChecked("ReverseNames");
-	  bool useFFCOClubMapping = gdi.isChecked("UseFFCOClubMapping");
+      string club = gdi.getText("ClubFile");
+      string cmp = gdi.getText("CmpFile");
+      if (club == cmp)
+        club = "";
 
-	  if (strlen(gdi.getText("ClubFile").c_str()) != 0 || strlen(gdi.getText("CmpFile").c_str()) != 0) {
-		  oe->importXML_IOF_Data(gdi.getText("ClubFile").c_str(),
-			  gdi.getText("CmpFile").c_str(), clear);
-	  }
-	  else {
-		  oe->importOECSV_Data(gdi.getText("OECSVFile").c_str(), clear, reverseNames, useFFCOClubMapping);
-	  }
+      csvparser csv;
+      bool clubCsv = !club.empty() && csv.iscsv(club.c_str()) != 0;
+      bool cmpCsv = !cmp.empty() && csv.iscsv(cmp.c_str()) != 0;
+      
+      if (cmpCsv) {
+        if (!club.empty())
+          throw meosException("Klubbfil får inte anges vid CSV import.");
+
+        oe->importOECSV_Data(cmp.c_str(), clear);
+      }
+      else {
+       if (clubCsv)
+          throw meosException("Klubbfil får inte anges vid CSV import.");
+
+        oe->importXML_IOF_Data(club.c_str(), cmp.c_str(), clear);
+      }
+      
       gdi.dropLine();
       gdi.addButton("CancelRunnerDatabase", "Återgå", CompetitionCB);
       gdi.refresh();
@@ -1138,7 +1131,8 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
 
       string startlist = getTempFile();
       bool eventorUTC = oe->getPropertyInt("UseEventorUTC", 0) != 0;
-      oe->exportIOFStartlist(oEvent::IOF30, startlist.c_str(), eventorUTC, set<int>(), false, false);
+      oe->exportIOFStartlist(oEvent::IOF30, startlist.c_str(), eventorUTC, 
+                             set<int>(), false, false, true);
       vector<string> fileList;
       fileList.push_back(startlist);
 
@@ -1219,7 +1213,8 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       set<int> classes;
       bool eventorUTC = oe->getPropertyInt("UseEventorUTC", 0) != 0;
       oe->exportIOFSplits(oEvent::IOF30, resultlist.c_str(), false,
-                          eventorUTC, classes, -1, false, true, false);
+                          eventorUTC, classes, -1, false, true, 
+                          false, true);
       vector<string> fileList;
       fileList.push_back(resultlist);
 
@@ -1478,7 +1473,7 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
           tRunnerDB = extractedFiles[0];
       }
 
-      oe->importXML_IOF_Data(tClubs.c_str(), tRunnerDB.c_str(), false);
+      oe->importXML_IOF_Data(tClubs.c_str(), tRunnerDB.c_str(), true);
       removeTempFile(tClubs);
 
       if (id > 0) {
@@ -1555,24 +1550,26 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       gdi.dropLine();
       gdi.addString("", 1, "Klart").setColor(colorGreen);
 
-      oe->getMeOSFeatures().useFeature(MeOSFeatures::Speaker, true, *oe);
-      oe->getMeOSFeatures().useFeature(MeOSFeatures::Economy, true, *oe);
-      oe->getMeOSFeatures().useFeature(MeOSFeatures::EditClub, true, *oe);
-      oe->getMeOSFeatures().useFeature(MeOSFeatures::Network, true, *oe);
-      oe->getMeOSFeatures().useFeature(MeOSFeatures::Vacancy, true, *oe);
-      oe->getMeOSFeatures().useFeature(MeOSFeatures::InForest, true, *oe);
-      oe->getMeOSFeatures().useFeature(MeOSFeatures::DrawStartList, true, *oe);
-      oe->getMeOSFeatures().useFeature(MeOSFeatures::Bib, true, *oe);
-      oe->getMeOSFeatures().useFeature(MeOSFeatures::RunnerDb, true, *oe);
-      oe->getMeOSFeatures().useFeature(MeOSFeatures::ForkedIndividual, true, *oe);
+      if (id > 0) {
+        oe->getMeOSFeatures().useFeature(MeOSFeatures::Speaker, true, *oe);
+        oe->getMeOSFeatures().useFeature(MeOSFeatures::Economy, true, *oe);
+        oe->getMeOSFeatures().useFeature(MeOSFeatures::EditClub, true, *oe);
+        oe->getMeOSFeatures().useFeature(MeOSFeatures::Network, true, *oe);
+        oe->getMeOSFeatures().useFeature(MeOSFeatures::Vacancy, true, *oe);
+        oe->getMeOSFeatures().useFeature(MeOSFeatures::InForest, true, *oe);
+        oe->getMeOSFeatures().useFeature(MeOSFeatures::DrawStartList, true, *oe);
+        oe->getMeOSFeatures().useFeature(MeOSFeatures::Bib, true, *oe);
+        oe->getMeOSFeatures().useFeature(MeOSFeatures::RunnerDb, true, *oe);
+        oe->getMeOSFeatures().useFeature(MeOSFeatures::ForkedIndividual, true, *oe);
 
-      if (oe->hasTeam()) {
-        oe->getMeOSFeatures().useFeature(MeOSFeatures::Relay, true, *oe);
+        if (oe->hasTeam()) {
+          oe->getMeOSFeatures().useFeature(MeOSFeatures::Relay, true, *oe);
+        }
       }
-
       gdi.scrollToBottom();
       gdi.dropLine();
-      gdi.disableInput("Cancel"); // Disable "cancel" above
+      if (gdi.hasField("Cancel"))
+        gdi.disableInput("Cancel"); // Disable "cancel" above
       gdi.fillRight();
       if (id > 0)
         gdi.addButton("StartIndividual", "Visa startlistan", ListsCB);
@@ -1689,25 +1686,24 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       selectStartlistOptions(gdi);
     }
     else if (bi.id=="BrowseExport" || bi.id=="BrowseExportResult") {
-      int FilterIndex = gdi.getSelectedItem("Type").first;
+      int filterIndex = gdi.getSelectedItem("Type").first;
       vector< pair<string, string> > ext;
-      if (bi.id=="BrowseExport") {
-        ext.push_back(make_pair("IOF Startlista, version 3.0 (xml)", "*.xml"));
-        ext.push_back(make_pair("IOF Startlista, version 2.0.3 (xml)", "*.xml"));
+      ImportFormats::getExportFilters(bi.id=="BrowseExport", ext);
+      /*if (bi.id=="BrowseExport") {
+        ext.push_back(make_pair("IOF Startlista (xml)", "*.xml"));
         ext.push_back(make_pair("OE Semikolonseparerad (csv)", "*.csv"));
         ext.push_back(make_pair("Webbdokument (html)", "*.html;*.htm"));
-	  }
+    }
       else {
-        ext.push_back(make_pair("IOF Resultat, version 3.0 (xml)", "*.xml"));
-        ext.push_back(make_pair("IOF Resultat, version 2.0.3 (xml)", "*.xml"));
+        ext.push_back(make_pair("IOF Resultat (xml)", "*.xml"));
         ext.push_back(make_pair("OE Semikolonseparerad (csv)", "*.csv"));
         ext.push_back(make_pair("Webbdokument (html)", "*.html"));
-	  }
-      string save = gdi.browseForSave(ext, "xml", FilterIndex);
+    }*/
+      string save = gdi.browseForSave(ext, "xml", filterIndex);
 
       if (save.length() > 0) {
         gdi.setText("Filename", save);
-        gdi.selectItemByData("Type", FilterIndex);
+        gdi.selectItemByData("Type", filterIndex);
         if (gdi.getExtra("Filename")) {
           gdi.enableInput((char *)gdi.getExtra("Filename"));
         }
@@ -1725,21 +1721,20 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
         includeStage = gdi.isChecked("IncludeRaceNumber");
 
       gdi.getSelection("ClassNewEntries", allTransfer);
-      int FilterIndex = gdi.getSelectedItem("Type").first;
-	  int cSVLanguageHeaderIndex = gdi.getSelectedItem("LanguageType").first;
-	  bool useFFCOClubMapping = gdi.isChecked("UseFFCOClubMapping");
-
+      ImportFormats::ExportFormats filterIndex = ImportFormats::setExportFormat(*oe, gdi.getSelectedItem("Type").first);
+      int cSVLanguageHeaderIndex = gdi.getSelectedItem("LanguageType").first;
+      
       gdi.setWaitCursor(true);
 
-      if (FilterIndex == 1 || FilterIndex == 2) {
+      if (filterIndex == ImportFormats::IOF30 || filterIndex == ImportFormats::IOF203) {
         bool useUTC = oe->getDCI().getInt("UTC") != 0;
-        oe->exportIOFStartlist(FilterIndex == 1 ? oEvent::IOF30 : oEvent::IOF20,
-                                save.c_str(), useUTC, allTransfer, individual, includeStage);
+        oe->exportIOFStartlist(filterIndex == ImportFormats::IOF30 ? oEvent::IOF30 : oEvent::IOF20,
+                                save.c_str(), useUTC, allTransfer, individual, includeStage, false);
       }
-      else if (FilterIndex == 3) {
-        oe->exportOECSV(save.c_str(), cSVLanguageHeaderIndex, false, useFFCOClubMapping);
+      else if (filterIndex == ImportFormats::OE) {
+        oe->exportOECSV(save.c_str(), cSVLanguageHeaderIndex, false);
       }
-	  else {
+      else {
         oListParam par;
         par.listCode = EStdStartList;
         par.setLegNumberCoded(-1);
@@ -1766,26 +1761,25 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       //bool individual = !gdi.hasField("ExportTeam") || gdi.isChecked("ExportTeam");
       gdi.getSelection("ClassNewEntries", allTransfer);
       
-      int FilterIndex = gdi.getSelectedItem("Type").first;
-	  int cSVLanguageHeaderIndex = gdi.getSelectedItem("LanguageType").first;
-	  bool includeSplits = gdi.isChecked("ExportSplitTimes");
-	  bool useFFCOClubMapping = gdi.isChecked("UseFFCOClubMapping");
-
+      ImportFormats::ExportFormats filterIndex = ImportFormats::setExportFormat(*oe, gdi.getSelectedItem("Type").first);
+      int cSVLanguageHeaderIndex = gdi.getSelectedItem("LanguageType").first;
+      bool includeSplits = gdi.isChecked("ExportSplitTimes");
+      
       bool unroll = gdi.isChecked("UnrollLoops"); // If not applicable, field does not exist.
       bool includeStage = true;
       if (gdi.hasField("IncludeRaceNumber"))
         includeStage = gdi.isChecked("IncludeRaceNumber");
 
       gdi.setWaitCursor(true);
-      if (FilterIndex == 1 || FilterIndex == 2) {
-        oEvent::IOFVersion ver = FilterIndex == 1 ? oEvent::IOF30 : oEvent::IOF20;
+      if (filterIndex == ImportFormats::IOF30 || filterIndex == ImportFormats::IOF203) {
+        oEvent::IOFVersion ver = filterIndex == ImportFormats::IOF30 ? oEvent::IOF30 : oEvent::IOF20;
         ClassConfigInfo cnf;
         oe->getClassConfigurationInfo(cnf);
         bool useUTC = oe->getDCI().getInt("UTC") != 0;
 
         if (!cnf.hasTeamClass()) {
           oe->exportIOFSplits(ver, save.c_str(), true, useUTC, 
-                              allTransfer, -1, false, unroll, includeStage);
+                              allTransfer, -1, false, unroll, includeStage, false);
         }
         else {
           ListBoxInfo leglbi;
@@ -1806,24 +1800,24 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
             for (int leg = 0; leg<legMax; leg++) {
               file = fileBase + "_" + itos(leg+1) + fileEnd;
               oe->exportIOFSplits(ver, file.c_str(), true, useUTC, 
-                                  allTransfer, leg, false, unroll, includeStage);
+                                  allTransfer, leg, false, unroll, includeStage, false);
             }
           }
           else if (leglbi.data == 3) {
             oe->exportIOFSplits(ver, file.c_str(), true, useUTC, allTransfer, 
-                                -1, true, unroll, includeStage);
+                                -1, true, unroll, includeStage, false);
           }
           else {
             int leg = leglbi.data == 1 ? -1 : leglbi.data - 10;
             oe->exportIOFSplits(ver, file.c_str(), true, useUTC, allTransfer, 
-                                leg, false, unroll, includeStage);
+                                leg, false, unroll, includeStage, false);
           }
         }
       }
-      else if (FilterIndex == 3) {
-        oe->exportOECSV(save.c_str(), cSVLanguageHeaderIndex, includeSplits, useFFCOClubMapping);
+      else if (filterIndex == ImportFormats::OE) {
+        oe->exportOECSV(save.c_str(), cSVLanguageHeaderIndex, includeSplits);
       }
-	  else {
+      else {
         oListParam par;
         par.listCode = EStdResultList;
         par.showSplitTimes = true;
@@ -1985,12 +1979,10 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       gdi.disableInput("Cancel");
       gdi.disableInput("BrowseEntries");
       bool removeRemoved = gdi.isChecked("RemoveRemoved");
-	  bool reverseNames = gdi.isChecked("ReverseNames");
-	  bool useFFCOClubMapping = gdi.isChecked("UseFFCOClubMapping");
-
-	  try {
+      
+      try {
         gdi.autoRefresh(true);
-        saveEntries(gdi, removeRemoved, false, reverseNames, useFFCOClubMapping);
+        saveEntries(gdi, removeRemoved, false);
       }
       catch (std::exception &) {
         gdi.enableEditControls(true);
@@ -2045,7 +2037,9 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       // Construct runner from database
       oRunner sRunner(oe, 0);
       sRunner.init(*dbr);
-      oe->addRunnerFromDB(&sRunner, classId, true);
+      pRunner added = oe->addRunnerFromDB(&sRunner, classId, true);
+      if (added)
+        added->synchronize();
       loadRunnerDB(gdi, 1, false);
     }
     else if (bi.id == "CancelRunnerDatabase") {
@@ -2074,7 +2068,7 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
 
       gdi.setWaitCursor(true);
       xml.openOutput(fileName.c_str(), false);
-      IOF30Interface writer(oe);
+      IOF30Interface writer(oe, false);
       writer.writeRunnerDB(oe->getRunnerDatabase(), xml);
       gdi.setWaitCursor(false);
     }
@@ -2089,7 +2083,7 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
 
       gdi.setWaitCursor(true);
       xml.openOutput(fileName.c_str(), false);
-      IOF30Interface writer(oe);
+      IOF30Interface writer(oe, false);
       writer.writeClubDB(oe->getRunnerDatabase(), xml);
       gdi.setWaitCursor(false);
     }
@@ -2155,29 +2149,7 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       oe->synchronize(true);
     }
     else if (lbi.id == "Type") {
-      if (gdi.hasField("LegType")) {
-        gdi.setInputStatus("LegType", lbi.data == 1 || lbi.data == 2); // Enable on IOF-XML
-      }
-      else if (gdi.hasField("ExportTeam")) {
-        gdi.setInputStatus("ExportTeam", lbi.data == 1); // Enable on IOF-XML
-      }
-	  else if (gdi.hasField("LanguageType")) { // Enable / Disable options for OE CSV export of results
-		  if (gdi.getSelectedItem("Type").first == 3) {
-			  // OE CSV
-			  gdi.enableInput("LanguageType");
-			  if (gdi.hasField("ExportSplitTimes")) {
-				  gdi.enableInput("ExportSplitTimes");
-			  }
-			  gdi.enableInput("UseFFCOClubMapping");
-		  }
-		  else {
-			  gdi.disableInput("LanguageType");
-			  if (gdi.hasField("ExportSplitTimes")) {
-				  gdi.disableInput("ExportSplitTimes");
-			  }
-			  gdi.disableInput("UseFFCOClubMapping");
-		  }
-	  }
+      setExportOptionsStatus(gdi, lbi.data);
     }
   }
   else if (type== GUI_INPUT) {
@@ -2353,7 +2325,7 @@ void TabCompetition::copyrightLine(gdioutput &gdi) const
 
   gdi.dropLine(0.4);
   gdi.fillDown();
-  gdi.addString("", 0, MakeDash("#Copyright © 2007-2016 Melin Software HB"));
+  gdi.addString("", 0, MakeDash("#Copyright © 2007-2017 Melin Software HB"));
   gdi.dropLine(1);
   gdi.popX();
 
@@ -2366,16 +2338,17 @@ void TabCompetition::loadAboutPage(gdioutput &gdi) const
   gdi.clearPage(false);
   gdi.addString("", 2, MakeDash("Om MeOS - ett Mycket Enkelt OrienteringsSystem")).setColor(colorDarkBlue);
   gdi.dropLine(2);
-  gdi.addStringUT(1, MakeDash("Copyright © 2007-2016 Melin Software HB"));
+  gdi.addStringUT(1, MakeDash("Copyright © 2007-2017 Melin Software HB"));
   gdi.dropLine();
   gdi.addStringUT(10, "The database connection used is MySQL++\nCopyright "
                         "(c) 1998 by Kevin Atkinson, (c) 1999, 2000 and 2001 by MySQL AB,"
                         "\nand (c) 2004-2007 by Educational Technology Resources, Inc.\n"
-                        "The database used is MySQL, Copyright (c) 2008-2016 Oracle, Inc."
+                        "The database used is MySQL, Copyright (c) 2008-2017 Oracle, Inc."
                         "\n\nGerman Translation by Erik Nilsson-Simkovics"
                         "\n\nDanish Translation by Michael Leth Jess and Chris Bagge"
                         "\n\nRussian Translation by Paul A. Kazakov and Albert Salihov"
-                        "\n\nFrench Translation by Jerome Monclard");
+                        "\n\nOriginal French Translation by Jerome Monclard"
+                        "\n\nAdaption to French conditions and extended translation by Pierre Gaufillet");
 
   gdi.dropLine();
   gdi.addString("", 0, "Det här programmet levereras utan någon som helst garanti. Programmet är ");
@@ -3408,17 +3381,14 @@ void TabCompetition::entryForm(gdioutput &gdi, bool isGuide) {
   gdi.addInput("FileName", "", 48, 0, "Anmälningar (IOF (xml) eller OE-CSV)");
   gdi.dropLine();
   gdi.addButton("BrowseEntries", "Bläddra...", CompetitionCB).setExtra("FileName");
-  gdi.popX();
-  gdi.dropLine(2.2);
-	if (!isGuide && oe->getNumRunners() > 0) {
-		gdi.addCheckbox("RemoveRemoved", "Ta bort eventuella avanmälda deltagare", 0, true);
-	}
-  gdi.addCheckbox("ReverseNames", "Import names as \"surname, first name\"", 0, true);
-  gdi.popX();
-  gdi.dropLine(1.5);
-  gdi.addCheckbox("UseFFCOClubMapping", "Use French Federation of Orienteering mapping", 0, oe->getPropertyString("Language", "English") == "Français");
-  gdi.popX();
   
+  gdi.popX();
+  gdi.dropLine(3.2);
+
+  if (!isGuide && oe->getNumRunners() > 0) {
+    gdi.addCheckbox("RemoveRemoved", "Ta bort eventuella avanmälda deltagare", 0, true);
+  }
+  gdi.popX();
 
   gdi.dropLine(2.5);
   gdi.addInput("FileNameRank", "", 48, 0, "Ranking (IOF, xml)");
@@ -3429,7 +3399,7 @@ void TabCompetition::entryForm(gdioutput &gdi, bool isGuide) {
   gdi.dropLine(3);
 }
 
-void TabCompetition::saveEntries(gdioutput &gdi, bool removeRemoved, bool isGuide, bool reverseNames, bool useFFCOClubmapping) {
+void TabCompetition::saveEntries(gdioutput &gdi, bool removeRemoved, bool isGuide) {
   string filename[5];
   filename[0] = gdi.getText("FileNameCmp");
   filename[1] = gdi.getText("FileNameCls");
@@ -3454,7 +3424,7 @@ void TabCompetition::saveEntries(gdioutput &gdi, bool removeRemoved, bool isGuid
         gdi.addString("", 0, "Importerar OE2003 csv-fil...");
         gdi.refresh();
         gdi.setWaitCursor(true);
-        if (csv.ImportOE_CSV(*oe, File, reverseNames, useFFCOClubmapping)) {
+        if (csv.ImportOE_CSV(*oe, File)) {
           gdi.addString("", 0, "Klart. X deltagare importerade.#" + itos(csv.nimport));
         }
         else gdi.addString("", 0, "Försöket misslyckades.");
@@ -3510,46 +3480,20 @@ void TabCompetition::selectStartlistOptions(gdioutput &gdi) {
   gdi.addSelection("Type", 250, 200, CompetitionCB, "Exporttyp:");
 
   vector< pair<string, size_t> > types;
-  types.push_back(make_pair(lang.tl("IOF Startlista, version 3.0 (xml)"), 1));
-  types.push_back(make_pair(lang.tl("IOF Startlista, version 2.0.3 (xml)"), 2));
-  types.push_back(make_pair(lang.tl("OE Semikolonseparerad (csv)"), 3));
-  types.push_back(make_pair(lang.tl("Webbdokument (html)"), 4));
-
+  ImportFormats::getExportFormats(types, false);
   gdi.addItem("Type", types);
-  gdi.selectFirstItem("Type");
+  ImportFormats::ExportFormats format = ImportFormats::getDefaultExportFormat(*oe);
+  gdi.selectItemByData("Type", format);
 
-
-  gdi.addSelection("LanguageType", 250, 200, CompetitionCB, "Export language");
-  vector<pair<string, size_t>> typeLanguages;
-  typeLanguages.push_back(make_pair(lang.tl("English"), 1));
-  typeLanguages.push_back(make_pair(lang.tl("Svenska"), 2));
-  typeLanguages.push_back(make_pair(lang.tl("Deutsch"), 3));
-  typeLanguages.push_back(make_pair(lang.tl("Dansk"), 4));
-  typeLanguages.push_back(make_pair(lang.tl("Français"), 5));
-  typeLanguages.push_back(make_pair(lang.tl("Russian"), 6));
-
+  vector< pair<string, size_t> > typeLanguages;
+  ImportFormats::getOECSVLanguage(typeLanguages);
+  
+  gdi.addSelection("LanguageType", 250, 200, CompetitionCB, "Export language:");
   gdi.addItem("LanguageType", typeLanguages);
-  string currentLanguage = oe->getPropertyString("Language", "English");
-  int defaultLanguageType = 1;
 
-  if (currentLanguage == "English")
-	  defaultLanguageType = 1;
-  else if (currentLanguage == "Svenska")
-	  defaultLanguageType = 2;
-  else if (currentLanguage == "Deutsch")
-	  defaultLanguageType = 3;
-  else if (currentLanguage == "Dansk")
-	  defaultLanguageType = 4;
-  else if (currentLanguage == "Français")
-	  defaultLanguageType = 5;
-  else if (currentLanguage == "Russian(ISO 8859 - 5)")
-	  defaultLanguageType = 6;
-
-  gdi.selectItemByData("LanguageType", defaultLanguageType);
-  gdi.disableInput("LanguageType");
-  gdi.addCheckbox("UseFFCOClubMapping", "Use French Federation of Orienteering mapping", 0, defaultLanguageType == 5);
-  gdi.disableInput("UseFFCOClubMapping");
-
+  gdi.selectItemByData("LanguageType", ImportFormats::getDefaultCSVLanguage(*oe));
+ 
+  
   ClassConfigInfo cnf;
   oe->getClassConfigurationInfo(cnf);
 
@@ -3558,6 +3502,8 @@ void TabCompetition::selectStartlistOptions(gdioutput &gdi) {
   }
   if (oe->hasMultiRunner() || oe->getStageNumber() > 0)
     gdi.addCheckbox("IncludeRaceNumber", "Inkludera information om flera lopp per löpare", 0, true);
+    
+  setExportOptionsStatus(gdi, format);
 
   gdi.addInput("Filename", "", 48, CompetitionCB,  "Filnamn:").setExtra("DoSaveStartlist");
   gdi.fillRight();
@@ -3587,50 +3533,25 @@ void TabCompetition::selectExportSplitOptions(gdioutput &gdi) {
   gdi.newColumn();
   gdi.popY();
   gdi.pushX();
-  gdi.addSelection("Type", 250, 200, CompetitionCB, "Exporttyp");
+  gdi.addSelection("Type", 250, 200, CompetitionCB, "Exporttyp:");
 
   vector< pair<string, size_t> > types;
-  types.push_back(make_pair(lang.tl("IOF Resultat, version 3.0 (xml)"), 1));
-  types.push_back(make_pair(lang.tl("IOF Resultat, version 2.0.3 (xml)"), 2));
-  types.push_back(make_pair(lang.tl("OE Semikolonseparerad (csv)"), 3));
-  types.push_back(make_pair(lang.tl("Webbdokument (html)"), 4));
+  ImportFormats::getExportFormats(types, true);
 
   gdi.addItem("Type", types);
-  gdi.selectFirstItem("Type");
+  ImportFormats::ExportFormats format = ImportFormats::getDefaultExportFormat(*oe);
+  gdi.selectItemByData("Type", format);
 
-  gdi.addSelection("LanguageType", 250, 200, CompetitionCB, "Export language");
-  vector<pair<string, size_t>> typeLanguages;
-  typeLanguages.push_back(make_pair(lang.tl("English"), 1));
-  typeLanguages.push_back(make_pair(lang.tl("Svenska"), 2));
-  typeLanguages.push_back(make_pair(lang.tl("Deutsch"), 3));
-  typeLanguages.push_back(make_pair(lang.tl("Dansk"), 4));
-  typeLanguages.push_back(make_pair(lang.tl("Français"), 5));
-  typeLanguages.push_back(make_pair(lang.tl("Russian"), 6));
-
+  vector< pair<string, size_t> > typeLanguages;
+  ImportFormats::getOECSVLanguage(typeLanguages);
+  
+  gdi.addSelection("LanguageType", 250, 200, CompetitionCB, "Export language:");
   gdi.addItem("LanguageType", typeLanguages);
-  string currentLanguage = oe->getPropertyString("Language", "English");
-  int defaultLanguageType = 1;
-
-  if (currentLanguage == "English")
-	  defaultLanguageType = 1;
-  else if (currentLanguage == "Svenska")
-	  defaultLanguageType = 2;
-  else if (currentLanguage == "Deutsch")
-	  defaultLanguageType = 3;
-  else if (currentLanguage == "Dansk")
-	  defaultLanguageType = 4;
-  else if (currentLanguage == "Français")
-	  defaultLanguageType = 5;
-  else if (currentLanguage == "Russian(ISO 8859 - 5)")
-	  defaultLanguageType = 6;
-
-  gdi.selectItemByData("LanguageType", defaultLanguageType);
-  gdi.disableInput("LanguageType");
-  gdi.addCheckbox("ExportSplitTimes", "Export Split Times", 0, false);
-  gdi.disableInput("ExportSplitTimes");
-  gdi.addCheckbox("UseFFCOClubMapping", "Use French Federation of Orienteering mapping", 0, defaultLanguageType == 5);
-  gdi.disableInput("UseFFCOClubMapping");
-
+  
+  gdi.selectItemByData("LanguageType", ImportFormats::getDefaultCSVLanguage(*oe));
+ 
+  gdi.addCheckbox("ExportSplitTimes", "Export split times", 0, oe->getPropertyInt("ExportCSVSplits", false) != 0);
+  
   ClassConfigInfo cnf;
   oe->getClassConfigurationInfo(cnf);
 
@@ -3659,6 +3580,7 @@ void TabCompetition::selectExportSplitOptions(gdioutput &gdi) {
   if (oe->hasMultiRunner() || oe->getStageNumber() > 0)
     gdi.addCheckbox("IncludeRaceNumber", "Inkludera information om flera lopp per löpare", 0, true);
 
+  setExportOptionsStatus(gdi, format);
   gdi.addInput("Filename", "", 48, CompetitionCB,  "Filnamn:").setExtra("DoSaveSplits");
   gdi.fillRight();
   gdi.dropLine();
@@ -3668,6 +3590,27 @@ void TabCompetition::selectExportSplitOptions(gdioutput &gdi) {
 
   gdi.disableInput("DoSaveSplits");
   gdi.refresh();
+}
+
+void TabCompetition::setExportOptionsStatus(gdioutput &gdi, int format) const {
+  if (gdi.hasField("LegType")) {
+    gdi.setInputStatus("LegType", format == ImportFormats::IOF30 || format == ImportFormats::IOF203); // Enable on IOF-XML
+  }
+  if (gdi.hasField("ExportTeam")) {
+    gdi.setInputStatus("ExportTeam", format == ImportFormats::IOF30); // Enable on IOF-XML
+  }
+
+  if (gdi.hasField("ExportSplitTimes")) {
+    gdi.setInputStatus("ExportSplitTimes", format == ImportFormats::OE);
+    if (format == ImportFormats::IOF203 || format == ImportFormats::IOF30)
+      gdi.check("ExportSplitTimes", true);
+  }
+  
+  if (gdi.hasField("IncludeRaceNumber")) {
+    gdi.setInputStatus("IncludeRaceNumber", format == ImportFormats::IOF30); // Enable on IOF-XML
+  }
+
+  gdi.setInputStatus("LanguageType", format == ImportFormats::OE);
 }
 
 void TabCompetition::clearCompetitionData() {

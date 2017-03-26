@@ -1,6 +1,6 @@
 /************************************************************************
     MeOS - Orienteering Software
-    Copyright (C) 2009-2016 Melin Software HB
+    Copyright (C) 2009-2017 Melin Software HB
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -174,7 +174,7 @@ void TabRunner::selectRunner(gdioutput &gdi, pRunner r) {
 
   runnerId=r->getId();
 
-  gdi.setText("Name", r->getName());
+  gdi.setText("Name", r->getNameRaw());
   string bib = r->getBib();
 
   if (gdi.hasField("Bib")) {
@@ -846,7 +846,7 @@ int TabRunner::runnerCB(gdioutput &gdi, int type, void *data)
       else
         r->printStartInfo(gdiprint);
       gdiprint.print(oe, 0, false, true);
-      gdiprint.getPrinterSettings(splitPrinter);
+      gdiprint.fetchPrinterSettings(splitPrinter);
     }
     else if (bi.id == "PrintSettings") {
       if (runnerId)
@@ -874,7 +874,7 @@ int TabRunner::runnerCB(gdioutput &gdi, int type, void *data)
       if (runnerId>0) {
         string name = gdi.getText("Name");
         pRunner r = oe->getRunner(runnerId, 0);
-        if (!name.empty() && r && r->getName() != name) {
+        if (!name.empty() && r && r->getName() != name && r->getNameRaw() != name) {
           if (gdi.ask("Vill du lägga till deltagaren 'X'?#" + name)) {
             r = oe->addRunner(name, 0, 0, 0,0, false);
             runnerId = r->getId();
@@ -1971,7 +1971,7 @@ void TabRunner::listRunners(gdioutput &gdi, const vector<pRunner> &r, bool filte
       continue;
     sprintf_s(bf, "%d.", k+1);
     gdi.addStringUT(yp, xp, 0, bf);
-    gdi.addStringUT(yp, xp+40, 0, r[k]->getNameAndRace(), 190);
+    gdi.addStringUT(yp, xp+40, 0, r[k]->getNameAndRace(true), 190);
     gdi.addStringUT(yp, xp+200, 0, r[k]->getClass(), 140);
     gdi.addStringUT(yp, xp+350, 0, r[k]->getClub(), 190);
     int c = r[k]->getCardNo();

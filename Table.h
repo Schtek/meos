@@ -1,7 +1,7 @@
 #pragma once
 /************************************************************************
     MeOS - Orienteering Software
-    Copyright (C) 2009-2016 Melin Software HB
+    Copyright (C) 2009-2017 Melin Software HB
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -227,10 +227,8 @@ protected:
 
   bool destroyEditControl(gdioutput &gdi);
 
-
   void getExportData(int col1, int col2, int row1, int row2,
                      string &html, string &txt) const;
-
 
   // Delete rows in selected range. Return number of rows that could not be removed
   int deleteRows(int row1, int row2);
@@ -249,6 +247,7 @@ protected:
 public:
 
   void setTableText(gdioutput &gdi, int editRow, int editCol, const string &bf);
+  const string &getTableText(gdioutput &gdi, int editRow, int editCol);
 
   int getTableId() const {return id;}
   static void resetTableIds() {uniqueId = 1;}

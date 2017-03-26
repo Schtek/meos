@@ -1,6 +1,6 @@
 /************************************************************************
     MeOS - Orienteering Software
-    Copyright (C) 2009-2016 Melin Software HB
+    Copyright (C) 2009-2017 Melin Software HB
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -38,6 +38,7 @@ class oControl;
 class oClass;
 class oDataInterface;
 class oDataConstInterface;
+class oAbstractRunner;
 struct RunnerDBEntry;
 class RunnerDB;
 
@@ -53,6 +54,7 @@ class IOF30Interface {
   int cachedStageNumber;
   int entrySourceId;
 
+  bool splitLateFee;
   bool useGMT; // Use GMT when exporting
 
   // Export teams as individual
@@ -170,9 +172,11 @@ class IOF30Interface {
   static void getFee(const xmlobject &xFee, FeeInfo &fee);
   static void getFeeAmounts(const xmlobject &xFee, double &fee, double &taxable, double &percentage, string &currency);
 
+  void writeFees(xmlparser &xml, const oRunner &r) const;
+
   void writeAmount(xmlparser &xml, const char *tag, int amount) const;
-  void writeAssignedFee(xmlparser &xml, const oDataConstInterface &dci) const;
-  void writeRentalCardService(xmlparser &xml, int cardFee) const;
+  void writeAssignedFee(xmlparser &xml, const oAbstractRunner &tr, int paidForCard) const;
+  void writeRentalCardService(xmlparser &xml, int cardFee, bool paid) const;
 
   void getProps(vector<string> &props) const;
 
@@ -252,9 +256,7 @@ class IOF30Interface {
                          const map<int, string> &ctrlId2ExportId);
 
 public:
-  IOF30Interface(oEvent *oe_) : oe(*oe_), useGMT(false), teamsAsIndividual(false), 
-                                entrySourceId(1), unrollLoops(true), 
-                                includeStageRaceInfo(true) {cachedStageNumber = -1;}
+  IOF30Interface(oEvent *oe, bool forceSplitFee);
   virtual ~IOF30Interface() {}
 
   void readEventList(gdioutput &gdi, xmlobject &xo);

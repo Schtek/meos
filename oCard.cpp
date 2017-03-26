@@ -1,6 +1,6 @@
 /************************************************************************
     MeOS - Orienteering Software
-    Copyright (C) 2009-2016 Melin Software HB
+    Copyright (C) 2009-2017 Melin Software HB
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -264,6 +264,13 @@ bool oCard::fillPunches(gdioutput &gdi, const string &name, pCourse crs) {
               gdi.addItem(name, "-\t-", -1);
               ctrl = crs->getControl(++matchPunch);
             }
+          }
+        }
+
+        if (it->isFinish() && crs) { //Add missing punches before the finish
+          while(ctrl) {
+            gdi.addItem(name, "-\t-", -1);
+            ctrl = crs->getControl(++matchPunch);
           }
         }
 
@@ -544,6 +551,9 @@ bool oEvent::isCardRead(const SICard &card) const
   oCardList::const_iterator it;
 
   for(it=Cards.begin(); it!=Cards.end(); ++it) {
+    if (it->isRemoved())
+      continue;
+
     if (it->cardNo==card.CardNumber && it->isCardRead(card))
       return true;
   }
@@ -566,7 +576,7 @@ Table *oEvent::getCardsTB() //Table mode
 
   table->addColumn("Starttid", 70, false);
   table->addColumn("Måltid", 70, false);
-  table->addColumn("Stämplingar", 70, false);
+  table->addColumn("Stämplingar", 70, true);
 
   table->setTableProp(Table::CAN_DELETE);
   table->update();
@@ -596,7 +606,7 @@ void oCard::addTableRow(Table &table) const {
 
   string runner(lang.tl("Oparad"));
   if (getOwner())
-    runner = tOwner->getNameAndRace();
+    runner = tOwner->getNameAndRace(true);
 
   oCard &it = *pCard(this);
   table.addRow(getId(), &it);
