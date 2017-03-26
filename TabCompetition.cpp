@@ -656,14 +656,6 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       gdi.dropLine();
       gdi.addButton("Browse", "Bläddra...", CompetitionCB).setExtra("CmpFile");
       gdi.popX();
-      gdi.dropLine(2);
-
-      gdi.addSelection("ImportOptions", 220, 200, 0, "Importinställning:");
-      vector< pair<string, size_t> > opt;
-      ImportFormats::getImportFormats(opt);
-      gdi.addItem("ImportOptions", opt);
-      gdi.selectItemByData("ImportOptions", oe->getPropertyInt("ImportOptions", ImportFormats::getDefault(*oe)));
-      gdi.popX();
 
       gdi.dropLine(3);
       gdi.popX();
@@ -685,7 +677,6 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       gdi.setWaitCursor(true);
       gdi.addString("", 0, "Importerar...");
       bool clear = gdi.isChecked("Clear");
-      ImportFormats importOpt(gdi.getSelectedItem("ImportOptions").first);
       string club = gdi.getText("ClubFile");
       string cmp = gdi.getText("CmpFile");
       if (club == cmp)
@@ -699,7 +690,7 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
         if (!club.empty())
           throw meosException("Klubbfil får inte anges vid CSV import.");
 
-        oe->importOECSV_Data(cmp.c_str(), clear, importOpt);
+        oe->importOECSV_Data(cmp.c_str(), clear);
       }
       else {
        if (clubCsv)
@@ -1140,7 +1131,8 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
 
       string startlist = getTempFile();
       bool eventorUTC = oe->getPropertyInt("UseEventorUTC", 0) != 0;
-      oe->exportIOFStartlist(oEvent::IOF30, startlist.c_str(), eventorUTC, set<int>(), false, false);
+      oe->exportIOFStartlist(oEvent::IOF30, startlist.c_str(), eventorUTC, 
+                             set<int>(), false, false, true);
       vector<string> fileList;
       fileList.push_back(startlist);
 
@@ -1221,7 +1213,8 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       set<int> classes;
       bool eventorUTC = oe->getPropertyInt("UseEventorUTC", 0) != 0;
       oe->exportIOFSplits(oEvent::IOF30, resultlist.c_str(), false,
-                          eventorUTC, classes, -1, false, true, false);
+                          eventorUTC, classes, -1, false, true, 
+                          false, true);
       vector<string> fileList;
       fileList.push_back(resultlist);
 
@@ -1736,10 +1729,10 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       if (filterIndex == ImportFormats::IOF30 || filterIndex == ImportFormats::IOF203) {
         bool useUTC = oe->getDCI().getInt("UTC") != 0;
         oe->exportIOFStartlist(filterIndex == ImportFormats::IOF30 ? oEvent::IOF30 : oEvent::IOF20,
-                                save.c_str(), useUTC, allTransfer, individual, includeStage);
+                                save.c_str(), useUTC, allTransfer, individual, includeStage, false);
       }
-      else if (filterIndex == ImportFormats::OE || filterIndex == ImportFormats::OE_FRANCE) {
-        oe->exportOECSV(save.c_str(), cSVLanguageHeaderIndex, false, filterIndex == ImportFormats::OE_FRANCE);
+      else if (filterIndex == ImportFormats::OE) {
+        oe->exportOECSV(save.c_str(), cSVLanguageHeaderIndex, false);
       }
       else {
         oListParam par;
@@ -1786,7 +1779,7 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
 
         if (!cnf.hasTeamClass()) {
           oe->exportIOFSplits(ver, save.c_str(), true, useUTC, 
-                              allTransfer, -1, false, unroll, includeStage);
+                              allTransfer, -1, false, unroll, includeStage, false);
         }
         else {
           ListBoxInfo leglbi;
@@ -1807,22 +1800,22 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
             for (int leg = 0; leg<legMax; leg++) {
               file = fileBase + "_" + itos(leg+1) + fileEnd;
               oe->exportIOFSplits(ver, file.c_str(), true, useUTC, 
-                                  allTransfer, leg, false, unroll, includeStage);
+                                  allTransfer, leg, false, unroll, includeStage, false);
             }
           }
           else if (leglbi.data == 3) {
             oe->exportIOFSplits(ver, file.c_str(), true, useUTC, allTransfer, 
-                                -1, true, unroll, includeStage);
+                                -1, true, unroll, includeStage, false);
           }
           else {
             int leg = leglbi.data == 1 ? -1 : leglbi.data - 10;
             oe->exportIOFSplits(ver, file.c_str(), true, useUTC, allTransfer, 
-                                leg, false, unroll, includeStage);
+                                leg, false, unroll, includeStage, false);
           }
         }
       }
-      else if (filterIndex == ImportFormats::OE || filterIndex == ImportFormats::OE_FRANCE) {
-        oe->exportOECSV(save.c_str(), cSVLanguageHeaderIndex, includeSplits, filterIndex == ImportFormats::OE_FRANCE);
+      else if (filterIndex == ImportFormats::OE) {
+        oe->exportOECSV(save.c_str(), cSVLanguageHeaderIndex, includeSplits);
       }
       else {
         oListParam par;
@@ -1986,11 +1979,10 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
       gdi.disableInput("Cancel");
       gdi.disableInput("BrowseEntries");
       bool removeRemoved = gdi.isChecked("RemoveRemoved");
-      ImportFormats importOpt(gdi.getSelectedItem("ImportOptions").first);
       
       try {
         gdi.autoRefresh(true);
-        saveEntries(gdi, removeRemoved, false, importOpt);
+        saveEntries(gdi, removeRemoved, false);
       }
       catch (std::exception &) {
         gdi.enableEditControls(true);
@@ -2076,7 +2068,7 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
 
       gdi.setWaitCursor(true);
       xml.openOutput(fileName.c_str(), false);
-      IOF30Interface writer(oe);
+      IOF30Interface writer(oe, false);
       writer.writeRunnerDB(oe->getRunnerDatabase(), xml);
       gdi.setWaitCursor(false);
     }
@@ -2091,7 +2083,7 @@ int TabCompetition::competitionCB(gdioutput &gdi, int type, void *data)
 
       gdi.setWaitCursor(true);
       xml.openOutput(fileName.c_str(), false);
-      IOF30Interface writer(oe);
+      IOF30Interface writer(oe, false);
       writer.writeClubDB(oe->getRunnerDatabase(), xml);
       gdi.setWaitCursor(false);
     }
@@ -3389,14 +3381,7 @@ void TabCompetition::entryForm(gdioutput &gdi, bool isGuide) {
   gdi.addInput("FileName", "", 48, 0, "Anmälningar (IOF (xml) eller OE-CSV)");
   gdi.dropLine();
   gdi.addButton("BrowseEntries", "Bläddra...", CompetitionCB).setExtra("FileName");
-  gdi.popX();
-  gdi.dropLine(2.2);
-
-  gdi.addSelection("ImportOptions", 220, 200, 0, "Importinställning:");
-  vector< pair<string, size_t> > opt;
-  ImportFormats::getImportFormats(opt);
-  gdi.addItem("ImportOptions", opt);
-  gdi.selectItemByData("ImportOptions", oe->getPropertyInt("ImportOptions", ImportFormats::getDefault(*oe)));
+  
   gdi.popX();
   gdi.dropLine(3.2);
 
@@ -3414,7 +3399,7 @@ void TabCompetition::entryForm(gdioutput &gdi, bool isGuide) {
   gdi.dropLine(3);
 }
 
-void TabCompetition::saveEntries(gdioutput &gdi, bool removeRemoved, bool isGuide, const ImportFormats &options) {
+void TabCompetition::saveEntries(gdioutput &gdi, bool removeRemoved, bool isGuide) {
   string filename[5];
   filename[0] = gdi.getText("FileNameCmp");
   filename[1] = gdi.getText("FileNameCls");
@@ -3439,7 +3424,7 @@ void TabCompetition::saveEntries(gdioutput &gdi, bool removeRemoved, bool isGuid
         gdi.addString("", 0, "Importerar OE2003 csv-fil...");
         gdi.refresh();
         gdi.setWaitCursor(true);
-        if (csv.ImportOE_CSV(*oe, File, options)) {
+        if (csv.ImportOE_CSV(*oe, File)) {
           gdi.addString("", 0, "Klart. X deltagare importerade.#" + itos(csv.nimport));
         }
         else gdi.addString("", 0, "Försöket misslyckades.");
@@ -3616,14 +3601,16 @@ void TabCompetition::setExportOptionsStatus(gdioutput &gdi, int format) const {
   }
 
   if (gdi.hasField("ExportSplitTimes")) {
-    gdi.setInputStatus("ExportSplitTimes", format == ImportFormats::OE || format == ImportFormats::OE_FRANCE);
+    gdi.setInputStatus("ExportSplitTimes", format == ImportFormats::OE);
+    if (format == ImportFormats::IOF203 || format == ImportFormats::IOF30)
+      gdi.check("ExportSplitTimes", true);
   }
   
   if (gdi.hasField("IncludeRaceNumber")) {
     gdi.setInputStatus("IncludeRaceNumber", format == ImportFormats::IOF30); // Enable on IOF-XML
   }
 
-  gdi.setInputStatus("LanguageType", format == ImportFormats::OE || format  == ImportFormats::OE_FRANCE);
+  gdi.setInputStatus("LanguageType", format == ImportFormats::OE);
 }
 
 void TabCompetition::clearCompetitionData() {

@@ -69,10 +69,14 @@ private:
   vector<string> filterDate;
 
   int runnerMatchedId;
+  bool printErrorShown;
+  void printProtected(gdioutput &gdi, gdioutput &gdiprint);
 
   //Interactive card assign
   SIMode mode;
   int currentAssignIndex;
+
+  void printSIInfo(gdioutput &gdi, const string &port) const;
 
   void assignCard(gdioutput &gdi, const SICard &sic);
   void entryCard(gdioutput &gdi, const SICard &sic);

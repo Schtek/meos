@@ -182,6 +182,8 @@ oEvent::oEvent(gdioutput &gdi):oBase(0), gdibase(gdi)
   msReConnect=0;
 #endif
 
+  currentNameMode = FirstLast;
+
   nextTimeLineEvent = 0;
   //These object must be initialized on creation of any oObject,
   //but we need to create (dummy) objects to get the sizeof their
@@ -450,9 +452,18 @@ void oEvent::initProperties() {
 
   setProperty("Interactive", getPropertyString("Interactive", "1"));
   setProperty("Database", getPropertyString("Database", "1"));
+
+  // Setup some defaults
+  getPropertyInt("SplitLateFees", false);
+  getPropertyInt("DirectPort", 21338);
+  getPropertyInt("UseHourFormat", 1);
+  getPropertyInt("UseDirectSocket", true);
+  getPropertyInt("UseEventorUTC", 0);
 }
 
 void oEvent::listProperties(bool userProps, vector< pair<string, PropertyType> > &propNames) const {
+  
+  
   set<string> filter;
   if (userProps) {
     filter.insert("Language");
@@ -467,6 +478,7 @@ void oEvent::listProperties(bool userProps, vector< pair<string, PropertyType> >
     filter.insert("DrawTypeDefault");
     filter.insert("Email"); 
     filter.insert("TextSize");
+    filter.insert("PayModes");
   }
 
   // Boolean and integer properties
@@ -488,6 +500,11 @@ void oEvent::listProperties(bool userProps, vector< pair<string, PropertyType> >
   b.insert("UseEventor");
   b.insert("UseEventorUTC");
   b.insert("UseHourFormat");
+  b.insert("SplitLateFees");
+  b.insert("WideSplitFormat");
+  b.insert("pagebreak");
+  b.insert("FirstTime");
+  b.insert("ExportCSVSplits");
 
   // Integers
   i.insert("YouthFee");
@@ -2238,13 +2255,25 @@ int oEvent::getRelativeTimeFrom12Hour(const string &m) const
   int atime=convertAbsoluteTime(m);
 
   if (atime>=0 && atime<3600*24) {
-    int rtime=atime-(ZeroTime % (3600*12));
+    int lowBound = ZeroTime;
+    int highBound = ZeroTime + 3600 * 12;
 
-    if (rtime<=0)
+    bool ok = ( atime >= lowBound && atime <= highBound) ||
+              ( (atime+3600*24) >= lowBound && (atime+3600*24) <= highBound);
+
+    int rtime = atime - ZeroTime;
+    if (!ok)
+      rtime += 12 * 3600;
+
+    rtime = (rtime+24*3600)%(24*3600);
+      
+    //int rtime=atime-(ZeroTime % (3600*12));
+
+/*    if (rtime<=0)
       rtime+=3600*12;
-
+    */
     //Don't allow times just before zero time.
-    if (rtime>3600*20)
+    if (rtime>3600*22)
       return -1;
 
     return rtime;
@@ -3363,6 +3392,8 @@ void oEvent::clear()
   gdibase.getTabs().clearCompetitionData();
   
   MeOSUtil::useHourFormat = getPropertyInt("UseHourFormat", 1) != 0;
+
+  currentNameMode = (NameMode) getPropertyInt("NameMode", FirstLast);
 }
 
 bool oEvent::deleteCompetition()
@@ -3775,7 +3806,7 @@ void oEvent::convertTimes(SICard &sic) const
   }
 
    // Support times longer than 24 hours
-  int maxLegTime = 22 * 3600;
+  int maxLegTime = useLongTimes() ? 22 * 3600 : 0;
   
   if (maxLegTime > 0) {
 
@@ -6398,3 +6429,15 @@ void oEvent::setPayMode(int id, const string &mode) {
   setExtraLines("PayModes", lines);
 }
 
+void oEvent::useDefaultProperties(bool useDefault) {
+  if (useDefault) {
+    if (savedProperties.empty())
+      savedProperties.swap(eventProperties);
+  }
+  else {
+    if (!savedProperties.empty()) {
+      savedProperties.swap(eventProperties);
+      savedProperties.clear();
+    }
+  }
+}

@@ -98,7 +98,7 @@ string &getFirst(string &inout, int maxNames) {
   return inout;
 }
 
-bool oEvent::exportOECSV(const char *file, int languageTypeIndex, bool includeSplits, bool useFFCOClubMapping)
+bool oEvent::exportOECSV(const char *file, int languageTypeIndex, bool includeSplits)
 {
   enum {
     OEstno = 0, OEcard = 1, OEid = 2, OEsurname = 3, OEfirstname = 4,
@@ -215,13 +215,8 @@ bool oEvent::exportOECSV(const char *file, int languageTypeIndex, bool includeSp
     row[OEclubno] = conv_is(it->getClubId());
 
     if (it->getClubRef()) {
-      if (useFFCOClubMapping) {
-        row[OEclub] = it->getClubRef()->getDI().getString("ShortName");
-        row[OEclubcity] = it->getClub();
-      } else {
-        row[OEclub] = it->getClub();
-        row[OEclubcity] = it->getClubRef()->getDI().getString("City");
-      }
+      row[OEclub] = it->getClubRef()->getDI().getString("ShortName");
+      row[OEclubcity] = it->getClub();
     }
     row[OEnat] = di.getString("Nationality");
     row[OEclassno] = conv_is(it->getClassId());
@@ -321,7 +316,7 @@ void oEvent::importXML_EntryData(gdioutput &gdi, const char *file, bool updateCl
     int ent = 0, fail = 0, removed = 0;
 
     if (xo.getAttrib("iofVersion")) {
-      IOF30Interface reader(this);
+      IOF30Interface reader(this, false);
       reader.readEntryList(gdi, xo, removeNonexisting, ent, fail, removed);
     }
     else {
@@ -381,7 +376,7 @@ void oEvent::importXML_EntryData(gdioutput &gdi, const char *file, bool updateCl
     int ent = 0, fail = 0;
 
     if (xo.getAttrib("iofVersion")) {
-      IOF30Interface reader(this);
+      IOF30Interface reader(this, false);
       reader.readStartList(gdi, xo, ent, fail);
     }
     else {
@@ -434,7 +429,7 @@ void oEvent::importXML_EntryData(gdioutput &gdi, const char *file, bool updateCl
     int imp = 0, fail = 0;
 
     if (xo.getAttrib("iofVersion")) {
-      IOF30Interface reader(this);
+      IOF30Interface reader(this, false);
       reader.readClassList(gdi, xo, imp, fail);
     }
     else {
@@ -530,7 +525,7 @@ void oEvent::importXML_EntryData(gdioutput &gdi, const char *file, bool updateCl
     int imp = 0, fail = 0;
 
     if (xo && xo.getAttrib("iofVersion")) {
-      IOF30Interface reader(this);
+      IOF30Interface reader(this, false);
       reader.readCourseData(gdi, xo, updateClass, imp, fail);
     }
     else {
@@ -573,7 +568,7 @@ void oEvent::importXML_EntryData(gdioutput &gdi, const char *file, bool updateCl
     gdi.refreshFast();
 
     if (xo.getAttrib("iofVersion")) {
-      IOF30Interface reader(this);
+      IOF30Interface reader(this, false);
       reader.readEventList(gdi, xo);
       gdi.addString("", 0, "Tävlingens namn: X#" + getName());
       gdi.dropLine();
@@ -693,7 +688,7 @@ bool oEvent::addXMLCompetitorDB(const xmlobject &xentry, int clubId)
   return true;
 }
 
-bool oEvent::addOECSVCompetitorDB(const vector<string> &row, bool useFFCOClubMapping)
+bool oEvent::addOECSVCompetitorDB(const vector<string> &row)
 {
   // Ident. base de données;Puce;Nom;Prénom;Né;S;N° club;Nom;Ville;Nat;N° cat.;Court;Long;Num1;Num2;Num3;E_Mail;Texte1;Texte2;Texte3;Adr. nom;Rue;Ligne2;Code Post.;Ville;Tél.;Fax;E-mail;Id/Club;Louée
   enum { OEid = 0, OEcard = 1, OEsurname = 2, OEfirstname = 3, OEbirth = 4, OEsex = 5,
@@ -724,7 +719,7 @@ bool oEvent::addOECSVCompetitorDB(const vector<string> &row, bool useFFCOClubMap
 
   // Hack to take care of inconsistency between FFCO licensees archive (France) and event registrations from FFCO (FR)
   char national[4] = { 0,0,0,0 };
-  if (useFFCOClubMapping && (row[OEnat] == "France")) {
+  if (row[OEnat] == "France") {
     strcpy(national, "FRA");
   }
 
@@ -733,18 +728,9 @@ bool oEvent::addOECSVCompetitorDB(const vector<string> &row, bool useFFCOClubMap
   int clubId = atoi(row[OEclubno].c_str());
   string clubName;
   string shortClubName;
-  string clubCity;
 
-  if (useFFCOClubMapping) {
-    clubName = row[OEclubcity];
-    shortClubName = row[OEclub];
-    clubCity = "";
-  }
-  else {
-    clubName = row[OEclub];
-    shortClubName = "";
-    clubCity = row[OEclubcity];
-  }
+  clubName = row[OEclubcity];
+  shortClubName = row[OEclub];
 
   if (clubName.length() > 0 && IsCharAlphaNumeric(clubName[0])) {
 
@@ -756,7 +742,6 @@ bool oEvent::addOECSVCompetitorDB(const vector<string> &row, bool useFFCOClubMap
 
     oDataInterface DI = pc->getDI();
     DI.setString("ShortName", shortClubName.substr(0, 8));
-    DI.setString("City", clubCity.substr(0, 23));
     // Nationality?
 
     runnerDB->importClub(*pc, false);
@@ -1240,7 +1225,7 @@ bool oEvent::importXMLNames(const char *file,
   return true;
 }
 
-void oEvent::importOECSV_Data(const char *oecsvfile, bool clear, const ImportFormats &importOptions) {
+void oEvent::importOECSV_Data(const char *oecsvfile, bool clear) {
   // Clear DB if needed
   if (clear) {
     runnerDB->clearClubs();
@@ -1262,7 +1247,7 @@ void oEvent::importOECSV_Data(const char *oecsvfile, bool clear, const ImportFor
   list<vector<string>>::iterator it;
 
   for (it = ++(data.begin()); it != data.end(); ++it) {
-    addOECSVCompetitorDB(*it, importOptions.getOption() == ImportFormats::FrenchFederationMapping);
+    addOECSVCompetitorDB(*it);
   }
     
   gdibase.addString("", 0, "Klart. Antal importerade: X#" + itos(data.size()));
@@ -1320,7 +1305,7 @@ void oEvent::importXML_IOF_Data(const char *clubfile,
     if (!xo) {
       xo = xml_club.getObject("OrganisationList");
       if (xo) {
-        IOF30Interface reader(this);
+        IOF30Interface reader(this, false);
         reader.readClubList(gdibase, xo, clubCount);
       }
     }
@@ -1359,7 +1344,7 @@ void oEvent::importXML_IOF_Data(const char *clubfile,
     xmlobject xo=xml_cmp.getObject("CompetitorList");
 
     if (xo && xo.getAttrib("iofVersion")) {
-      IOF30Interface reader(this);
+      IOF30Interface reader(this, false);
       reader.readCompetitorList(gdibase, xo, personCount);
     }
     else {
@@ -2686,7 +2671,7 @@ void oEvent::exportIOFSplits(IOFVersion version, const char *file,
                              bool oldStylePatrolExport, bool useUTC,
                              const set<int> &classes, int leg,
                              bool teamsAsIndividual, bool unrollLoops,
-                             bool includeStageInfo) {
+                             bool includeStageInfo, bool forceSplitFee) {
   xmlparser xml(gdibase.getEncoding() == ANSI ? 0 : &gdibase);
 
   xml.openOutput(file, false);
@@ -2702,7 +2687,7 @@ void oEvent::exportIOFSplits(IOFVersion version, const char *file,
   if (version == IOF20)
     exportIOFResults(xml, true, classes, leg, oldStylePatrolExport);
   else {
-    IOF30Interface writer(this);
+    IOF30Interface writer(this, forceSplitFee);
     writer.writeResultList(xml, classes, leg, useUTC, 
                            teamsAsIndividual, unrollLoops, includeStageInfo);
   }
@@ -2711,7 +2696,8 @@ void oEvent::exportIOFSplits(IOFVersion version, const char *file,
 }
 
 void oEvent::exportIOFStartlist(IOFVersion version, const char *file, bool useUTC,
-                                const set<int> &classes, bool teamsAsIndividual, bool includeStageInfo) {
+                                const set<int> &classes, bool teamsAsIndividual,
+                                bool includeStageInfo, bool forceSplitFee) {
   xmlparser xml(gdibase.getEncoding() == ANSI ? 0 : &gdibase);
   
   oClass::initClassId(*this);
@@ -2720,7 +2706,7 @@ void oEvent::exportIOFStartlist(IOFVersion version, const char *file, bool useUT
   if (version == IOF20)
     exportIOFStartlist(xml);
   else {
-    IOF30Interface writer(this);
+    IOF30Interface writer(this, forceSplitFee);
     writer.writeStartList(xml, classes, useUTC, teamsAsIndividual, includeStageInfo);
   }
   xml.closeOut();
