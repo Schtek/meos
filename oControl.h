@@ -177,8 +177,6 @@ public:
   /// Get name or id
   string getIdS() const;
 
-  string getIdS() const;
-
   bool isRogaining(bool useRogaining) const {return useRogaining && (Status == StatusRogaining);}
 
   void setStatus(ControlStatus st);

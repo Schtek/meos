@@ -49,7 +49,7 @@ string getBuildType() {
 }
 
 string getMajorVersion() {
-  return "3.4-ffco";
+  return "3.4";
 }
 
 string getMeosFullVersion() {
