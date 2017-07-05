@@ -1,9 +1,9 @@
 /***********************************************************************
  transaction.cpp - Implements the Transaction class.
 
- Copyright (c) 2006 by Educational Technology Resources, Inc.  Others
- may also hold copyrights on code in this file.  See the CREDITS file
- in the top directory of the distribution for details.
+ Copyright © 2006-2014 by Educational Technology Resources, Inc.
+ Others may also hold copyrights on code in this file.  See the
+ CREDITS.txt file in the top directory of the distribution for details.
 
  This file is part of MySQL++.
 
@@ -35,14 +35,44 @@ using namespace std;
 using namespace mysqlpp;
 
 
-//// ctor //////////////////////////////////////////////////////////////
+//// ctors /////////////////////////////////////////////////////////////
 
 Transaction::Transaction(Connection& conn, bool consistent) :
 conn_(conn),
 finished_(true)		// don't bother rolling it back if ctor fails
 {
 	// Begin the transaction set
-	Query q(conn_.query());
+	Query q(conn_.query("START TRANSACTION"));
+	if (consistent) {
+		q << " WITH CONSISTENT SNAPSHOT";
+	}
+	q.execute();
+
+	// Setup succeeded, so mark our transaction as not-finished.
+	finished_ = false;
+}
+
+Transaction::Transaction(Connection& conn, IsolationLevel level,
+		IsolationScope scope, bool consistent) :
+conn_(conn),
+finished_(true)		// don't bother rolling it back if ctor fails
+{
+	// Set the transaction isolation level and scope as the user wishes
+	Query q(conn_.query("SET "));
+	if (scope == session) q << "SESSION ";
+	if (scope == global)  q << "GLOBAL ";
+	q << "TRANSACTION ISOLATION LEVEL ";
+	switch (level) {
+		case read_uncommitted:	q << "READ UNCOMMITTED"; break;
+		case read_committed:	q << "READ COMMITTED";   break;
+		case repeatable_read:	q << "REPEATABLE READ";  break;
+		case serializable:		q << "SERIALIZABLE";     break;
+	}
+	q.execute();
+
+	// Begin the transaction set.  Note that the above isn't part of
+	// the transaction, on purpose, so that scope == transaction affects
+	// *this* transaction, not the next one.
 	q << "START TRANSACTION";
 	if (consistent) {
 		q << " WITH CONSISTENT SNAPSHOT";
@@ -74,10 +104,7 @@ Transaction::~Transaction()
 void
 Transaction::commit()
 {
-	Query q(conn_.query());
-	q << "COMMIT";
-	q.execute();
-
+	conn_.query("COMMIT").execute();
 	finished_ = true;
 }
 
@@ -87,10 +114,7 @@ Transaction::commit()
 void
 Transaction::rollback()
 {
-	Query q(conn_.query());
-	q << "ROLLBACK";
-	q.execute();
-
+	conn_.query("ROLLBACK").execute();
 	finished_ = true;
 }
 

@@ -1,10 +1,10 @@
 /***********************************************************************
  field_names.cpp - Implements the FieldNames class.
 
- Copyright (c) 1998 by Kevin Atkinson, (c) 1999, 2000 and 2001 by
- MySQL AB, and (c) 2004, 2005 by Educational Technology Resources, Inc.
- Others may also hold copyrights on code in this file.  See the CREDITS
- file in the top directory of the distribution for details.
+ Copyright (c) 1998 by Kevin Atkinson, (c) 1999-2001 by MySQL AB, and
+ (c) 2004-2010 by Educational Technology Resources, Inc.  Others may
+ also hold copyrights on code in this file.  See the CREDITS.txt file
+ in the top directory of the distribution for details.
 
  This file is part of MySQL++.
 
@@ -28,21 +28,40 @@
 #include "common.h"
 
 #include "field_names.h"
-
 #include "result.h"
+
+#include <algorithm>
 
 namespace mysqlpp {
 
-void FieldNames::init(const ResUse * res)
+namespace internal { extern void str_to_lwr(std::string& s); }
+
+void
+FieldNames::init(const ResultBase* res)
 {
-	int num = res->num_fields();
+	size_t num = res->num_fields();
 	reserve(num);
 
-	for (int i = 0; i < num; i++) {
-		std::string p(res->fields().at(i).name);
-		str_to_lwr(p);
-		push_back(p);
+	for (size_t i = 0; i < num; i++) {
+		push_back(res->fields().at(i).name());
 	}
+}
+
+
+unsigned int
+FieldNames::operator [](const std::string& s) const
+{
+	std::string temp1(s);
+	internal::str_to_lwr(temp1);
+	for (const_iterator it = begin(); it != end(); ++it) {
+	std::string temp2(*it);
+		internal::str_to_lwr(temp2);
+		if (temp2.compare(temp1) == 0) {
+			return it - begin();
+		}
+	}
+
+	return end() - begin();
 }
 
 } // end namespace mysqlpp

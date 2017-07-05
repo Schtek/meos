@@ -6,7 +6,7 @@
 #	number limits the number of parameters a MySQL++ template query can
 #	accept.  This value can be changed from its default, below.
 #
-# Copyright (c) 2006-2007 by Educational Technology Resources, Inc.
+# Copyright (c) 2006-2010 by Educational Technology Resources, Inc.
 # Others may also hold copyrights on code in this file.  See the CREDITS
 # file in the top directory of the distribution for details.
 #
@@ -39,6 +39,11 @@ my $max_parameters = 25;
 # No user-serviceable parts below.
 
 use strict;
+use Getopt::Std;
+
+our $opt_f;
+getopts('f:') or die "usage: $0 [-f fields]\n\n";
+$max_parameters = int($opt_f) if defined $opt_f;
 
 open (OUT, ">querydef.h");
 
@@ -51,6 +56,8 @@ print OUT << "---";
 #ifndef MYSQLPP_QUERYDEF_H
 #define MYSQLPP_QUERYDEF_H
 
+#define MYSQLPP_TQUERY_MAX_PARAMETERS $max_parameters
+
 ---
 
 ## Build mysql_query_define0 macro
@@ -58,7 +65,7 @@ print OUT "#define mysql_query_define0(RETURN, FUNC) \\\n";
 for (my $i = 1; $i < $max_parameters; ++$i) {
 	print OUT "\tRETURN FUNC(";
 	for (my $j = 0; $j < $i + 1; ++$j) {
-		print OUT 'const SQLString& arg', $j;
+		print OUT 'const SQLTypeAdapter& arg', $j;
 		print OUT ', ' unless $j == $i;
 	}
 	print OUT ") \\\n";
@@ -69,27 +76,14 @@ for (my $i = 1; $i < $max_parameters; ++$i) {
 	}
 	print OUT "); } \\\n";
 }
+print OUT "\n";
 
 ## Add mysql_query_define1 macro
-print OUT << "---";
-
-#define mysql_query_define1(RETURN, FUNC) \\
-	RETURN FUNC(SQLQueryParms& p); \\
-	mysql_query_define0(RETURN, FUNC)
----
-
-## Add mysql_query_define2 macro
-print OUT << "---";
-
-#define mysql_query_define2(FUNC) \\
-	template <class T> void FUNC(T& container, const char* str); \\
-	template <class T> void FUNC(T& container, SQLQueryParms& p, \\
-  		query_reset r = RESET_QUERY); \\
----
-for (my $i = 0; $i < $max_parameters; ++$i) {
+print OUT "#define mysql_query_define1(FUNC) \\\n";
+for (my $i = 1; $i < $max_parameters; ++$i) {
 	print OUT "\ttemplate <class T> void FUNC(T& container";
 	for (my $j = 0; $j < $i + 1; ++$j) {
-		print OUT ', const SQLString& arg', $j;
+		print OUT ', const SQLTypeAdapter& arg', $j;
 	}
 	print OUT ") \\\n";
 	print OUT "\t\t{ FUNC(container, SQLQueryParms()";
@@ -98,7 +92,8 @@ for (my $i = 0; $i < $max_parameters; ++$i) {
 	}
 	print OUT "); } \\\n";
 }
+print OUT "\n";
 
 ## That's all, folks!
-print OUT "\n#endif // !defined(MYSQLPP_QUERYDEF_H)\n";
+print OUT "#endif // !defined(MYSQLPP_QUERYDEF_H)\n";
 

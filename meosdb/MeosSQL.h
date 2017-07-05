@@ -115,7 +115,7 @@ protected:
   void synchronized(const oBase &entity);
   bool skipSynchronize(const oBase &entity) const;
 
-  mysqlpp::ResNSel updateCounter(const char *oTable, int id, mysqlpp::Query *updateqry);
+  mysqlpp::SimpleResult updateCounter(const char *oTable, int id, mysqlpp::Query *updateqry);
   string selectUpdated(const char *oTable, const string &updated, int counter);
 
 public:
